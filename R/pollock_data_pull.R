@@ -69,5 +69,5 @@ ebs_cpue <- calc_cpue(gapdata = ebs_data) %>%
             lon = LONGITUDE_DD_START)
 
 write.csv(ebs_cpue, 
-          here("species_specific_code", "BS", "pollock", "research", "pollock_num.csv"), 
+          here("data", "pollock_num.csv"), 
           row.names = FALSE)

@@ -18,32 +18,20 @@ library(ggsidekick)
 theme_set(theme_sleek())
 
 # Get pollock CPUE data -------------------------------------------------------
-phase <- "hindcast" # determines (combined w/ the year) which cycle the data are from
-
 this_year <- as.numeric(format(Sys.Date(), "%Y"))
-if(phase == "hindcast") {this_year <- this_year - 1}  
 
 kts <- 250  # Number of knots for the index model mesh
 
 # Make a new directory for the model output
-results_wd <- here("species_specific_code", "BS", "pollock", "research", "numbers", paste0(kts, "kts"))
+results_wd <- here("results", "numbers", paste0(kts, "kts"))
 dir.create(here(results_wd), recursive = TRUE, showWarnings = FALSE)
 
 # Read in data
-dat <- read.csv(here("species_specific_code", "BS", "pollock", "research", "pollock_num.csv"))
-
-# dat <- read.csv(here("species_specific_code", "BS", "pollock", phase,
-#                      "data", paste0("VAST_ddc_all_", this_year, ".csv")))  
-# dat <- transmute(dat,
-#                  cpue = ddc_cpue_kg_ha * 100, # converts cpue from kg/ha to kg/km^2
-#                  year = as.integer(year),
-#                  lat = start_latitude,
-#                  lon = start_longitude)
-
+dat <- read.csv(here("data", "pollock_num.csv"))
 
 # detect if any years have occurrences at every haul and fix params as needed
 mins <- dat %>% group_by(year) %>% summarize(min = min(cpue))
-if(sum(mins$min) == 0){
+if (sum(mins$min, na.rm = TRUE) == 0) {
   control = sdmTMBcontrol()
 } else {
   no_zero_yr <- as.integer(mins %>% filter(min > 0) %>% select(year))
@@ -64,6 +52,9 @@ if(sum(mins$min) == 0){
 # Set up cold pool covariate
 # devtools::install_github("afsc-gap-products/coldpool")
 env_df <- coldpool::cold_pool_index
+if(max(!this_year %in% env_df$YEAR < this_year)) {
+  print("You may need to remove and reinstall the coldpool package to get the newest data!")
+}
 
 env <- cbind(env_df, env = scale(coldpool::cold_pool_index$AREA_LTE2_KM2)) %>%
   mutate(year = as.integer(YEAR)) %>%
@@ -77,8 +68,7 @@ dat$year_f <- as.factor(dat$year)
 dat <- add_utm_columns(dat, ll_names = c("lon", "lat"), utm_crs = 32602, units = "km")
 
 # Fit model (if needed) -------------------------------------------------------
-f1 <- here("species_specific_code", "BS", "pollock", phase, "results", 
-           paste0("fit_", kts, "_knots.RDS"))
+f1 <- here(results_wd, "fit.RDS")
 if (file.exists(f1)) {
   fit <- readRDS(f1)
   } else {
@@ -113,7 +103,7 @@ if(!exists("fit")) {
 }
 
 # Read in polygons
-load(here("species_specific_code", "BS", "pollock", "research", "Pribilof_polygons.RData"))
+load(here("data", "Pribilof_polygons.RData"))
 # Projected crs = 3338, unprojected crs = 4326
 
 # Clean up labelling for later plotting
