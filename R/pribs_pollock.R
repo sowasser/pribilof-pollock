@@ -215,7 +215,6 @@ ggsave(file = here(results_wd, "residuals_map.pdf"),
 
 # predictions on map plot, by year
 for(i in 1:nrow(final_combined_hr_polygons_projected_sf)) {
-  i <- 2
   dir_name <- paste0("radius", final_combined_hr_polygons_projected_sf$associated_circle_radius_meters[i])
   load(here(results_wd, dir_name, "pred.Rdata"))
   p <- p$data
