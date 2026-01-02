@@ -169,7 +169,7 @@ index_by_area <- function(area) {
   ind <- get_index(p, bias_correct = TRUE, area = pred_grid$area_km2)
   ind$stratum <- final_combined_hr_polygons_projected_sf$associated_circle_radius_meters[area]
   write.csv(ind, file = here(results_wd, dir_name, "index.csv"), row.names = FALSE)
-  print(paste0("Completed index for ", area))
+  print(paste0("Completed index for ", final_combined_hr_polygons_projected_sf$associated_circle_radius_meters[area]))
   
   return(ind)
 }
@@ -178,15 +178,14 @@ index_out <- lapply(1:nrow(final_combined_hr_polygons_projected_sf), index_by_ar
 indices <- do.call(rbind, index_out)
 indices$stratum  <- factor(indices$stratum,
                            levels = c("25", "50", "75", "100", "125", "150", "175", "200", "225", "250", "Pribilofs"),
-                           labels = c("25km", "50km", "75km", "100km", "125km", "150km", "175km", "200km", "225km", "250km", "Pribilofs")
-)
+                           labels = c("25km", "50km", "75km", "100km", "125km", "150km", "175km", "200km", "225km", "250km", "Pribilofs"))
 
 # Plot index, scaled from kg to Mt
 ggplot(indices, aes(x = year, y = (est / 1e9))) +
   geom_line() +
   ylim(0, NA) +
   geom_ribbon(aes(ymin = (lwr / 1e9), ymax = (upr / 1e9)), alpha = 0.4) +
-  xlab("") + ylab("Biomass") +
+  xlab("") + ylab("Abundance (billions)") +
   facet_wrap(~stratum, scales = "free")
 ggsave(file = here(results_wd, "index.png"), 
        height = 6, width = 10, units = "in")
