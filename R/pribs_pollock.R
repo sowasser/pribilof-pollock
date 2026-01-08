@@ -23,7 +23,7 @@ this_year <- as.numeric(format(Sys.Date(), "%Y"))
 kts <- 250  # Number of knots for the index model mesh
 
 # Whether abundance will be in "numbers" or "biomass"
-data_type <- "numbers"
+data_type <- "biomass"
 
 # Make a new directory for the model output
 results_wd <- here("results", data_type, paste0(kts, "kts"))
@@ -36,6 +36,7 @@ if(data_type == "numbers") {
 
 if(data_type == "biomass") {
   dat <- read.csv(here("data", "VAST_ddc_all_2025.csv"))
+  colnames(dat)[3:5] <- c("lat", "lon", "cpue")
 }
 
 # detect if any years have occurrences at every haul and fix params as needed
@@ -75,7 +76,6 @@ dat <- left_join(dat, env, by = "year")
 
 # Final data manipulation steps
 dat$year_f <- as.factor(dat$year)
-
 dat <- add_utm_columns(dat, ll_names = c("lon", "lat"), utm_crs = 32602, units = "km")
 
 # Fit model (if needed) -------------------------------------------------------
@@ -84,7 +84,7 @@ if (file.exists(f1)) {
   fit <- readRDS(f1)
   } else {
     mesh <-  make_mesh(dat, xy_cols = c("X", "Y"), 
-                       mesh = fmesher::fm_as_fm(readRDS(file = here("meshes", 
+                       mesh = fmesher::fm_as_fm(readRDS(file = here("shapefiles", 
                                                                     paste0("ebs_vast_mesh_", kts, "_knots.RDS")))))
     fit <- sdmTMB( 
       cpue ~ 0 + year_f,
