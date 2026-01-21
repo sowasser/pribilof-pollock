@@ -22,31 +22,43 @@ this_year <- as.numeric(format(Sys.Date(), "%Y"))
 
 kts <- 250  # Number of knots for the index model mesh
 
+# Whether abundance will be in "numbers" or "biomass"
+data_type <- "biomass"
+
 # Make a new directory for the model output
-results_wd <- here("results", "numbers", paste0(kts, "kts"))
+results_wd <- here("results", data_type, paste0(kts, "kts"))
 dir.create(here(results_wd), recursive = TRUE, showWarnings = FALSE)
 
 # Read in data
-dat <- read.csv(here("data", "pollock_num.csv"))
+if(data_type == "numbers") {
+  dat <- read.csv(here("data", "pollock_num.csv"))
+}
+
+if(data_type == "biomass") {
+  dat <- read.csv(here("data", "VAST_ddc_all_2025.csv"))
+  colnames(dat)[3:5] <- c("lat", "lon", "cpue")
+}
 
 # detect if any years have occurrences at every haul and fix params as needed
-mins <- dat %>% group_by(year) %>% summarize(min = min(cpue))
-if (sum(mins$min, na.rm = TRUE) == 0) {
-  control = sdmTMBcontrol()
-} else {
-  no_zero_yr <- as.integer(mins %>% filter(min > 0) %>% select(year))
-  # set up map and fix value of p(occurrence) to slightly less than 1:
-  yrs <- sort(unique(factor(dat$year)))
-  .map <- seq_along(yrs)
-  .map[yrs %in% no_zero_yr] <- NA
-  .map <- factor(.map)
-  .start <- rep(0, length(yrs))
-  .start[yrs %in% no_zero_yr] <- 20
-  
-  control =  sdmTMBcontrol(
-    map = list(b_j = .map),
-    start = list(b_j = .start)
-  )
+if(data_type == "numbers") {
+  mins <- dat %>% group_by(year) %>% summarize(min = min(cpue))
+  if (sum(mins$min, na.rm = TRUE) == 0) {
+    control = sdmTMBcontrol()
+  } else {
+    no_zero_yr <- as.integer(mins %>% filter(min > 0) %>% select(year))
+    # set up map and fix value of p(occurrence) to slightly less than 1:
+    yrs <- sort(unique(factor(dat$year)))
+    .map <- seq_along(yrs)
+    .map[yrs %in% no_zero_yr] <- NA
+    .map <- factor(.map)
+    .start <- rep(0, length(yrs))
+    .start[yrs %in% no_zero_yr] <- 20
+    
+    control =  sdmTMBcontrol(
+      map = list(b_j = .map),
+      start = list(b_j = .start)
+    )
+  }
 }
 
 # Set up cold pool covariate
@@ -64,7 +76,6 @@ dat <- left_join(dat, env, by = "year")
 
 # Final data manipulation steps
 dat$year_f <- as.factor(dat$year)
-
 dat <- add_utm_columns(dat, ll_names = c("lon", "lat"), utm_crs = 32602, units = "km")
 
 # Fit model (if needed) -------------------------------------------------------
@@ -73,7 +84,7 @@ if (file.exists(f1)) {
   fit <- readRDS(f1)
   } else {
     mesh <-  make_mesh(dat, xy_cols = c("X", "Y"), 
-                       mesh = fmesher::fm_as_fm(readRDS(file = here("meshes", 
+                       mesh = fmesher::fm_as_fm(readRDS(file = here("shapefiles", 
                                                                     paste0("ebs_vast_mesh_", kts, "_knots.RDS")))))
     fit <- sdmTMB( 
       cpue ~ 0 + year_f,
@@ -185,8 +196,15 @@ ggplot(indices, aes(x = year, y = (est / 1e9))) +
   geom_line() +
   ylim(0, NA) +
   geom_ribbon(aes(ymin = (lwr / 1e9), ymax = (upr / 1e9)), alpha = 0.4) +
-  xlab("") + ylab("Abundance (billions)") +
-  facet_wrap(~stratum, scales = "free")
+  xlab("") + 
+  facet_wrap(~stratum, scales = "free") +
+  {
+    if (data_type == "numbers") {
+      ylab("Abundance (billions)")
+    } else if (data_type == "biomass") {
+      ylab("Biomass (Mt)")
+    }
+  }
 ggsave(file = here(results_wd, "index.png"), 
        height = 6, width = 10, units = "in")
 
@@ -195,7 +213,10 @@ ggsave(file = here(results_wd, "index.png"),
 pdf(file = here(results_wd, "qq.pdf"),
     width = 5, height = 5)
 sims <- simulate(fit, nsim = 500, type = "mle-mvn") 
-sims |> dharma_residuals(fit, test_uniformity = FALSE)
+sims |> dharma_residuals(fit, test_uniformity = FALSE) 
+# previous is not working: 
+# Error in `predict()`:
+# ! Prediction offset vector does not equal number of rows in prediction dataset.
 dev.off()
 
 #residuals on map plot, by year
@@ -226,7 +247,13 @@ for(i in 1:nrow(final_combined_hr_polygons_projected_sf)) {
     scale_y_continuous(breaks = c(6000, 6500, 7000)) +
     facet_wrap(~year) +
     coord_fixed() +
-    ggtitle("Predicted densitites (kg / square km)") 
+    {
+      if (data_type == "numbers") {
+        ggtitle("Predicted densitites (numbers / square km)")
+      } else if (data_type == "biomass") {
+        ggtitle("Predicted densitites (kg / square km)")
+      }
+    }
   ggsave(pred_map, file = here(results_wd, dir_name, "predictions_map.pdf"),
          height = 7, width = 7, units = "in")
 }
