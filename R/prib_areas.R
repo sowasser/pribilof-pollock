@@ -64,11 +64,15 @@ region_grids <- function(polygon, label, save_plot = TRUE) {
     facet_wrap(~stratum) +
     ggtitle(label)
   
+  # Save output for each region in its own directory
+  wd <- here("shapefiles", "processed")
+  dir.create(here(wd, label), recursive = TRUE, showWarnings = FALSE)
   if(save_plot == TRUE) {
-    ggsave(plot, file = here("shapefiles", "processed", paste0("pred_grids_", label, ".png")),
+    ggsave(plot, file = here(wd, label, paste0("pred_grids_", label, ".png")),
            height = 6, width = 7.5, units = c("in"))
   }
   
+  save(grid_list, file = here(wd, label, "grid.Rdata"))
   return(grids)
 }
 
