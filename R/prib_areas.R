@@ -17,7 +17,7 @@ library(ggsidekick)
 theme_set(theme_sleek())
 
 # Run grid creation at the sub-area level for each polygon
-region_grids <- function(polygon, label, save_plot = TRUE) {
+region_grids <- function(polygon, label, save_plot = FALSE) {
   df <- polygon
   
   # Clean up labels
