@@ -109,11 +109,14 @@ saveRDS(fit, file = here(results_wd, "fit.RDS"))
 
 # Make predictions and index --------------------------------------------------
 # Read in fit if object is not already in environment
+tictoc::tic("Test")
 if(!exists("fit")) {
   fit <- readRDS(here(results_wd, "fit.RDS"))
 }
+tictoc::toc()
 
 # Calculate index for each area
+tictoc::tic("Multi-area index expansion") # Start timer for index production
 index_by_area <- function(reg) {
   # Load in prediction grid created in prib_areas.R
   load(here("shapefiles", "processed", reg, "grid.Rdata"))
@@ -153,15 +156,14 @@ index_by_area <- function(reg) {
   return(ind_df)
 }
 
-index <- index_by_area("STG")
-
-indices <- bind_rows(index_by_area(reg = "STG"),
-                     index_by_area(reg = "STG_North"),
-                     index_by_area(reg = "STG_South"),
-                     index_by_area(reg = "STP"),
-                     index_by_area(reg = "STP_East"),
-                     index_by_area(reg = "STP_EB"),
-                     index_by_area(reg = "STP_Reef_Point"))
+indices <- bind_rows(index_by_area("STG"),
+                     index_by_area("STG_North"),
+                     index_by_area("STG_South"),
+                     index_by_area("STP"),
+                     index_by_area("STP_East"),
+                     index_by_area("STP_EB"),
+                     index_by_area("STP_Reef_Point"))
+tictoc::toc()  # report time elapsed
 
 # Plot index, scaled from kg to Mt
 ggplot(indices, aes(x = year, y = (est / 1e9))) +
