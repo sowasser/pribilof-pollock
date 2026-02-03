@@ -146,7 +146,7 @@ index_by_area <- function(reg) {
     #           row.names = FALSE)
     
     ind_list[[i]] <- ind
-    print(paste0("Completed index for ", reg, " ", stratum, " (", i, " of ", nrow(grid_list), ")"))
+    print(paste0("Completed index for ", reg, " ", stratum, " (", i, " of ", length(grid_list), ")"))
   }
   ind_df <- bind_rows(ind_list)
   
