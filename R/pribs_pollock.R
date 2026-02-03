@@ -113,36 +113,47 @@ if(!exists("fit")) {
   fit <- readRDS(here(results_wd, "fit.RDS"))
 }
 
-# Read in polygons
-island_grids <- read.csv(here("shapefiles", "processed", "island_complex_grids.csv"))
-
 # Calculate index for each area
-index_by_area <- function(strat = "all", reg) {
-  df <- island_grids %>% filter(stratum == strat, region == reg)
+index_by_area <- function(reg) {
+  # Load in prediction grid created in prib_areas.R
+  load(here("shapefiles", "processed", reg, "grid.Rdata"))
+  
   # Create a folder for each index area
-  dir_name <- paste0("radius", reg, strat)
-  dir.create(here(results_wd, dir_name), recursive = TRUE, showWarnings = FALSE)
+  dir.create(here(results_wd, reg), recursive = TRUE, showWarnings = FALSE)
   
-  # replicate prediction grid for each year in data
-  pred_grid <- replicate_df(data.frame(df), "year_f", unique(dat$year_f))
-  pred_grid$year <- as.integer(as.character(factor(pred_grid$year_f)))
+  ind_list <- vector("list", length = length(grid_list))
+  for(i in 1:length(grid_list)) {
+    df <- grid_list[[i]]
+    stratum <- unique(df$stratum)  # for later labelling
+    
+    # replicate prediction grid for each year in data
+    pred_grid <- replicate_df(data.frame(df), "year_f", unique(dat$year_f))
+    pred_grid$year <- as.integer(as.character(factor(pred_grid$year_f)))
+    
+    # join with environmental covariate (cold pool)
+    pred_grid <- left_join(pred_grid, env, by = "year")
+    
+    # get prediction
+    p <- predict(fit, newdata = pred_grid, return_tmb_object = TRUE)
+    save(p, file = here(results_wd, reg, paste0("pred_", stratum,".Rdata")))
+    
+    # get index
+    ind <- get_index(p, bias_correct = TRUE, area = pred_grid$area_km2)
+    ind$stratum <- stratum
+    ind$region <- reg
+    # write.csv(ind, 
+    #           file = here(results_wd, reg, paste0("index_", stratum, ".csv")), 
+    #           row.names = FALSE)
+    
+    ind_list[[i]] <- ind
+    print(paste0("Completed index for ", reg, " ", stratum, " (", i, " of ", nrow(grid_list), ")"))
+  }
+  ind_df <- bind_rows(ind_list)
   
-  # join with environmental covariate (cold pool)
-  pred_grid <- left_join(pred_grid, env, by = "year")
-  
-  # get prediction
-  p <- predict(fit, newdata = pred_grid, return_tmb_object = TRUE)
-  save(p, file = here(results_wd, dir_name, "pred.Rdata"))
-  
-  # get index
-  ind <- get_index(p, bias_correct = TRUE, area = pred_grid$area_km2)
-  ind$stratum <- strat
-  ind$region <- reg
-  write.csv(ind, file = here(results_wd, dir_name, "index.csv"), row.names = FALSE)
-  print(paste0("Completed index for ", reg, " ", strat))
-  
-  return(ind)
+  return(ind_df)
 }
+
+index <- index_by_area("STG")
 
 indices <- bind_rows(index_by_area(reg = "STG"),
                      index_by_area(reg = "STG_North"),
