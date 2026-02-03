@@ -23,7 +23,7 @@ this_year <- as.numeric(format(Sys.Date(), "%Y"))
 kts <- 250  # Number of knots for the index model mesh
 
 # Whether abundance will be in "numbers" or "biomass"
-data_type <- "biomass"
+data_type <- "numbers"
 
 # Make a new directory for the model output
 results_wd <- here("results", data_type, paste0(kts, "kts"))
@@ -114,59 +114,17 @@ if(!exists("fit")) {
 }
 
 # Read in polygons
-load(here("data", "Pribilof_polygons.RData"))
-# Projected crs = 3338, unprojected crs = 4326
-
-# Clean up labelling for later plotting
-final_combined_hr_polygons_projected_sf$associated_circle_radius_meters <- final_combined_hr_polygons_projected_sf$associated_circle_radius_meters / 1000
-final_combined_hr_polygons_projected_sf$associated_circle_radius_meters[1] <- "Pribilofs"
-
-# Create expansion grid for each area
-grid_by_area <- function(area) {
-  polygon <- final_combined_hr_polygons_projected_sf$geometry[area]
-  grid <- make_2d_grid(obj = polygon,
-                       resolution = c(3704, 3704),  # default resolution - 2x2nm
-                       output_type = "point",
-                       include_tile_center = TRUE) %>%
-    st_transform(crs = "EPSG:32602") 
-  
-  grid[, c('LON_UTM', "LAT_UTM")] <- st_coordinates(grid)
-  
-  grid <- data.frame(grid) %>%
-    select(LON_UTM, LAT_UTM, AREA) %>%
-    mutate(X = LON_UTM / 1000,
-           Y = LAT_UTM / 1000,
-           area_km2 = as.numeric(AREA)/1e6) %>%
-    select(X, Y, area_km2)
-  grid <- as.data.frame(as.matrix(grid)) # drop attributes
-  grid$stratum <- final_combined_hr_polygons_projected_sf$associated_circle_radius_meters[area]
-  return(grid)
-}
-grid_list <- lapply(1:nrow(final_combined_hr_polygons_projected_sf), grid_by_area)
-grids <- do.call(rbind, grid_list)
-grids$stratum  <- factor(grids$stratum,
-  levels = c("25", "50", "75", "100", "125", "150", "175", "200", "225", "250", "Pribilofs"),
-  labels = c("25km", "50km", "75km", "100km", "125km", "150km", "175km", "200km", "225km", "250km", "Pribilofs")
-)
-
-# ggplot(grids, aes(X, Y, colour = area_km2)) +
-#   geom_tile(width = 2, height = 2, fill = NA) +
-#   scale_colour_viridis_c(direction = -1) +
-#   geom_point(size = 0.5) +
-#   coord_fixed() +
-#   xlab("") + ylab("") +
-#   facet_wrap(~stratum)
-# ggsave(file = here(results_wd, "pred_grids.png"),
-#        height = 6, width = 7.5, units = c("in"))
+island_grids <- read.csv(here("shapefiles", "processed", "island_complex_grids.csv"))
 
 # Calculate index for each area
-index_by_area <- function(area) {
+index_by_area <- function(strat = "all", reg) {
+  df <- island_grids %>% filter(stratum == strat, region == reg)
   # Create a folder for each index area
-  dir_name <- paste0("radius", final_combined_hr_polygons_projected_sf$associated_circle_radius_meters[area])
+  dir_name <- paste0("radius", reg, strat)
   dir.create(here(results_wd, dir_name), recursive = TRUE, showWarnings = FALSE)
   
   # replicate prediction grid for each year in data
-  pred_grid <- replicate_df(data.frame(grid_list[area]), "year_f", unique(dat$year_f))
+  pred_grid <- replicate_df(data.frame(df), "year_f", unique(dat$year_f))
   pred_grid$year <- as.integer(as.character(factor(pred_grid$year_f)))
   
   # join with environmental covariate (cold pool)
@@ -178,18 +136,21 @@ index_by_area <- function(area) {
   
   # get index
   ind <- get_index(p, bias_correct = TRUE, area = pred_grid$area_km2)
-  ind$stratum <- final_combined_hr_polygons_projected_sf$associated_circle_radius_meters[area]
+  ind$stratum <- strat
+  ind$region <- reg
   write.csv(ind, file = here(results_wd, dir_name, "index.csv"), row.names = FALSE)
-  print(paste0("Completed index for ", final_combined_hr_polygons_projected_sf$associated_circle_radius_meters[area]))
+  print(paste0("Completed index for ", reg, " ", strat))
   
   return(ind)
 }
 
-index_out <- lapply(1:nrow(final_combined_hr_polygons_projected_sf), index_by_area)
-indices <- do.call(rbind, index_out)
-indices$stratum  <- factor(indices$stratum,
-                           levels = c("25", "50", "75", "100", "125", "150", "175", "200", "225", "250", "Pribilofs"),
-                           labels = c("25km", "50km", "75km", "100km", "125km", "150km", "175km", "200km", "225km", "250km", "Pribilofs"))
+indices <- bind_rows(index_by_area(reg = "STG"),
+                     index_by_area(reg = "STG_North"),
+                     index_by_area(reg = "STG_South"),
+                     index_by_area(reg = "STP"),
+                     index_by_area(reg = "STP_East"),
+                     index_by_area(reg = "STP_EB"),
+                     index_by_area(reg = "STP_Reef_Point"))
 
 # Plot index, scaled from kg to Mt
 ggplot(indices, aes(x = year, y = (est / 1e9))) +
@@ -197,7 +158,7 @@ ggplot(indices, aes(x = year, y = (est / 1e9))) +
   ylim(0, NA) +
   geom_ribbon(aes(ymin = (lwr / 1e9), ymax = (upr / 1e9)), alpha = 0.4) +
   xlab("") + 
-  facet_wrap(~stratum, scales = "free") +
+  facet_wrap(~region, scales = "free") +
   {
     if (data_type == "numbers") {
       ylab("Abundance (billions)")
