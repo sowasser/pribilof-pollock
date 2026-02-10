@@ -164,12 +164,15 @@ indices <- bind_rows(index_by_area("STG"),
                      index_by_area("STP_Reef_Point"))
 
 # Plot index, scaled from kg to Mt
+indices$stratum <- factor(indices$stratum, 
+                          levels = c("all", "250", "225", "200", "175", "150", 
+                                     "125", "100", "75", "50", "25"))
 ggplot(indices, aes(x = year, y = (est / 1e9))) +
   geom_line() +
-  ylim(0, NA) +
   geom_ribbon(aes(ymin = (lwr / 1e9), ymax = (upr / 1e9)), alpha = 0.4) +
+  ylim(0, NA) +
   xlab("") + 
-  facet_wrap(~region, scales = "free") +
+  facet_grid(stratum ~ region, scales = "free") +
   {
     if (data_type == "numbers") {
       ylab("Abundance (billions)")
@@ -178,7 +181,7 @@ ggplot(indices, aes(x = year, y = (est / 1e9))) +
     }
   }
 ggsave(file = here(results_wd, "index.png"), 
-       height = 6, width = 10, units = "in")
+       height = 10, width = 12, units = "in")
 
 # Plot predicted density maps and fit diagnostics -----------------------------
 # q-q plot
