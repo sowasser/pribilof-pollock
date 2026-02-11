@@ -45,19 +45,15 @@ ebs_other_data <- get_data(year_set = c(1994, 2001, 2005, 2006),
                            remove_na_strata = TRUE)
 
 # Combine the EBS standard and EBS other data into one list. 
-ebs_data <- list(
-  survey = ebs_standard_data$survey,
-  survey_design = ebs_standard_data$survey_design,
-  #' Some cruises are shared between the standard and other EBS cruises, so the 
-  #' unique() wrapper is there to remove duplicate cruise records. 
-  cruise = unique(rbind(ebs_standard_data$cruise,
-                        ebs_other_data$cruise)),
-  haul = rbind(ebs_standard_data$haul,
-               ebs_other_data$haul),
-  catch = rbind(ebs_standard_data$catch,
-                ebs_other_data$catch),
-  species = ebs_standard_data$species,
-  strata = ebs_standard_data$strata)
+ebs_data <- list(survey = ebs_standard_data$survey,
+                 survey_design = ebs_standard_data$survey_design,
+                 #' Some cruises are shared between the standard and other EBS cruises, so the 
+                 #' unique() wrapper is there to remove duplicate cruise records. 
+                 cruise = unique(rbind(ebs_standard_data$cruise, ebs_other_data$cruise)),
+                 haul = rbind(ebs_standard_data$haul, ebs_other_data$haul),
+                 catch = rbind(ebs_standard_data$catch, ebs_other_data$catch),
+                 species = ebs_standard_data$species,
+                 strata = ebs_standard_data$strata)
 
 # Calculate CPUE and export ---------------------------------------------------
 ebs_cpue <- calc_cpue(gapdata = ebs_data) %>%
@@ -71,3 +67,6 @@ ebs_cpue <- calc_cpue(gapdata = ebs_data) %>%
 write.csv(ebs_cpue, 
           here("data", "pollock_num.csv"), 
           row.names = FALSE)
+
+# Compare to DDC data ---------------------------------------------------------
+

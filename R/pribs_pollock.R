@@ -135,7 +135,8 @@ index_by_area <- function(reg) {
     pred_grid <- left_join(pred_grid, env, by = "year")
     
     # get prediction
-    p <- predict(fit, newdata = pred_grid, return_tmb_object = TRUE)
+    p <- predict(fit, newdata = pred_grid, return_tmb_object = TRUE,
+                 offset = rep(0, nrow(pred_grid)))
     save(p, file = here(results_wd, reg, paste0("pred_", stratum,".Rdata")))
     
     # get index
@@ -184,20 +185,22 @@ ggsave(file = here(results_wd, "index.png"),
        height = 10, width = 12, units = "in")
 
 # Plot predicted density maps and fit diagnostics -----------------------------
-# q-q plot
-pdf(file = here(results_wd, "qq.pdf"),
-    width = 5, height = 5)
-sims <- simulate(fit, nsim = 500, type = "mle-mvn") 
-sims |> dharma_residuals(fit, test_uniformity = FALSE) 
-# previous is not working: 
-# Error in `predict()`:
-# ! Prediction offset vector does not equal number of rows in prediction dataset.
-dev.off()
+# # q-q plot
+# pdf(file = here(results_wd, "qq.pdf"),
+#     width = 5, height = 5)
+# sims <- simulate(fit, nsim = 500, type = "mle-mvn") 
+# sims |> dharma_residuals(fit, test_uniformity = FALSE) 
+# # previous is not working: 
+# # Error in `predict()`:
+# # ! Prediction offset vector does not equal number of rows in prediction dataset.
+# dev.off()
+# 
+# #residuals on map plot, by year
+# resids <- sims |>
+#   dharma_residuals(fit, test_uniformity = FALSE, return_DHARMa = TRUE)
+# fit$data$resids <- resids$scaledResiduals
 
-#residuals on map plot, by year
-resids <- sims |>
-  dharma_residuals(fit, test_uniformity = FALSE, return_DHARMa = TRUE)
-fit$data$resids <- resids$scaledResiduals
+dat$resid <- residuals(fit)
 
 ggplot(subset(fit$data, !is.na(resids) & is.finite(resids)), aes(X, Y, col = resids)) +
   scale_colour_gradient2(name = "residuals", midpoint = 0.5) +
