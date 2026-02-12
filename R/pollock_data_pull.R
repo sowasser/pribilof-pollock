@@ -7,6 +7,8 @@ library(gapindex)
 library(here)
 library(dplyr)
 library(ggplot2)
+library(ggsidekick)
+theme_set(theme_sleek())
 
 # Connect to Oracle
 if (file.exists("Z:/Projects/ConnectToOracle.R")) {
@@ -76,7 +78,8 @@ nas <- ebs_cpue %>%
 # Compare to DDC data ---------------------------------------------------------
 ddc_alk <- read.csv(here("data", "VAST_ddc_alk_2025.csv")) %>%
   group_by(Year, Lat, Lon) %>%
-  summarize(CPUE_num = sum(CPUE_num))
+  summarize(CPUE_num = sum(CPUE_num)) %>%
+  filter(Lat %in% ebs_cpue$lat & Lon %in% ebs_cpue$lon)
 
 annual_ddc <- ddc_alk %>%
   group_by(Year) %>%
@@ -94,5 +97,52 @@ annual_num <- ebs_cpue %>%
 annual_combined <- bind_rows(annual_ddc, annual_num)
 
 ggplot(annual_combined, aes(x = year, y = cpue, color = data, fill = data)) +
+  geom_point() +
+  geom_line()
+
+# Compare biomass cpue
+ebs_biom <- calc_cpue(gapdata = ebs_data) %>%
+  select("YEAR", "LATITUDE_DD_START",
+         "LONGITUDE_DD_START", "CPUE_KGKM2") %>%
+  transmute(cpue = CPUE_KGKM2, 
+            year = as.integer(YEAR),
+            lat = LATITUDE_DD_START,
+            lon = LONGITUDE_DD_START)
+
+ddc_biom <- read.csv(here("data", "VAST_ddc_EBSonly_2025.csv")) %>%
+  rename(lat = start_latitude, lon = start_longitude) %>%
+  group_by(year, lat, lon) %>%
+  summarize(CPUE_kg = sum(ddc_cpue_kg_ha)) %>%
+  filter(lat %in% ebs_biom$lat & lon %in% ebs_biom$lon)
+
+annual_ddc_biom <- ddc_biom %>%
+  group_by(year) %>%
+  summarize(cpue = sum(CPUE_kg)) %>%
+  mutate(data = "DDC")
+
+annual_biom <- ebs_biom %>%
+  filter(!is.na(cpue)) %>%  # for now, removing NAs
+  group_by(year) %>%
+  summarize(cpue = sum(cpue)) %>%
+  mutate(data = "raw") %>%
+  mutate(cpue = cpue / 100)
+
+annual_combined_biom <- bind_rows(annual_ddc_biom, annual_biom)
+
+ggplot(annual_combined_biom, aes(x = year, y = cpue, color = data, fill = data)) +
+  geom_point() +
+  geom_line()
+
+# Calculate difference between the two data sources and plot together
+diff <- bind_rows(
+  bind_cols(year = annual_ddc$year, 
+            cpue_diff = (annual_ddc$cpue - annual_num$cpue) / annual_num$cpue,
+            type = "numbers"),
+  bind_cols(year = annual_ddc_biom$year, 
+            cpue_diff = (annual_ddc_biom$cpue - annual_biom$cpue) / annual_biom$cpue,
+            type = "biomass"),
+) 
+
+ggplot(diff, aes(x = year, y = cpue_diff, color = type)) +
   geom_point() +
   geom_line()
