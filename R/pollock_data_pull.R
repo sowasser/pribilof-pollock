@@ -71,16 +71,19 @@ write.csv(ebs_cpue,
           here("data", "pollock_num.csv"), 
           row.names = FALSE)
 
-# Explore numerical CPUE data -------------------------------------------------
+# Explore numerical CPUE data - check for NAs
 nas <- ebs_cpue %>%
   filter(is.na(cpue))
 
 # Compare to DDC data ---------------------------------------------------------
+# Read in DDC in numbers (created for ALK)
 ddc_alk <- read.csv(here("data", "VAST_ddc_alk_2025.csv")) %>%
   group_by(Year, Lat, Lon) %>%
   summarize(CPUE_num = sum(CPUE_num)) %>%
-  filter(Lat %in% ebs_cpue$lat & Lon %in% ebs_cpue$lon)
+  # filter to lat/lon in gapindex pull
+  filter(Lat %in% ebs_cpue$lat & Lon %in% ebs_cpue$lon) 
 
+# Get annual values for comparison
 annual_ddc <- ddc_alk %>%
   group_by(Year) %>%
   summarize(CPUE = sum(CPUE_num)) %>%
@@ -92,7 +95,7 @@ annual_num <- ebs_cpue %>%
   group_by(year) %>%
   summarize(cpue = sum(cpue)) %>%
   mutate(data = "raw") %>%
-  mutate(cpue = cpue / 100)  # is this a units thing or a problem?
+  mutate(cpue = cpue / 100)  # convert to square kilometers
 
 annual_combined <- bind_rows(annual_ddc, annual_num)
 
@@ -121,7 +124,7 @@ annual_ddc_biom <- ddc_biom %>%
   mutate(data = "DDC")
 
 annual_biom <- ebs_biom %>%
-  filter(!is.na(cpue)) %>%  # for now, removing NAs
+  filter(!is.na(cpue)) %>%  
   group_by(year) %>%
   summarize(cpue = sum(cpue)) %>%
   mutate(data = "raw") %>%
