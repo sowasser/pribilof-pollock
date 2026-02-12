@@ -6,6 +6,7 @@
 library(gapindex)
 library(here)
 library(dplyr)
+library(ggplot2)
 
 # Connect to Oracle
 if (file.exists("Z:/Projects/ConnectToOracle.R")) {
@@ -68,5 +69,30 @@ write.csv(ebs_cpue,
           here("data", "pollock_num.csv"), 
           row.names = FALSE)
 
-# Compare to DDC data ---------------------------------------------------------
+# Explore numerical CPUE data -------------------------------------------------
+nas <- ebs_cpue %>%
+  filter(is.na(cpue))
 
+# Compare to DDC data ---------------------------------------------------------
+ddc_alk <- read.csv(here("data", "VAST_ddc_alk_2025.csv")) %>%
+  group_by(Year, Lat, Lon) %>%
+  summarize(CPUE_num = sum(CPUE_num))
+
+annual_ddc <- ddc_alk %>%
+  group_by(Year) %>%
+  summarize(CPUE = sum(CPUE_num)) %>%
+  mutate(data = "DDC")
+colnames(annual_ddc)[1:2] <- c("year", "cpue")
+
+annual_num <- ebs_cpue %>%
+  filter(!is.na(cpue)) %>%  # for now, removing NAs
+  group_by(year) %>%
+  summarize(cpue = sum(cpue)) %>%
+  mutate(data = "raw") %>%
+  mutate(cpue = cpue / 100)  # is this a units thing or a problem?
+
+annual_combined <- bind_rows(annual_ddc, annual_num)
+
+ggplot(annual_combined, aes(x = year, y = cpue, color = data, fill = data)) +
+  geom_point() +
+  geom_line()
