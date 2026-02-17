@@ -31,13 +31,16 @@ dir.create(here(results_wd), recursive = TRUE, showWarnings = FALSE)
 
 # Read in data
 if(data_type == "numbers") {
-  dat <- read.csv(here("data", "pollock_num.csv"))
+  dat <- read.csv(here("data", "ddc_num.csv"))
 }
 
 if(data_type == "biomass") {
   dat <- read.csv(here("data", "VAST_ddc_all_2025.csv"))
   colnames(dat)[3:5] <- c("lat", "lon", "cpue")
 }
+
+# Check for NAs
+unique(is.na(dat))
 
 # detect if any years have occurrences at every haul and fix params as needed
 if(data_type == "numbers") {
