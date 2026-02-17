@@ -152,20 +152,49 @@ index_by_area <- function(reg) {
     
     ind_list[[i]] <- ind
     print(paste0("Completed index for ", reg, " ", stratum, " (", i, " of ", length(grid_list), ")"))
+    
+    # q-q plot
+    pdf(file = here(results_wd, reg, paste0("qq_", stratum, ".pdf")),
+        width = 5, height = 5)
+    sims <- simulate(fit, nsim = 500, type = "mle-mvn")
+    sims |> dharma_residuals(fit, test_uniformity = FALSE)
+    dev.off()
+    print(paste0("Completed index for ", reg, " ", stratum, " (", i, " of ", length(grid_list), ")"))
+
+    # residuals on map plot, by year
+    resids <- sims |>
+      dharma_residuals(fit, test_uniformity = FALSE, return_DHARMa = TRUE)
+    fit$data$resids <- resids$scaledResiduals
+    
+    resid_map <- ggplot(subset(fit$data, !is.na(resids) & is.finite(resids)), aes(X, Y, col = resids)) +
+      scale_colour_gradient2(name = "residuals", midpoint = 0.5) +
+      geom_point(size = 0.7) +
+      scale_x_continuous(breaks = c(250, 750)) +
+      scale_y_continuous(breaks = c(6000, 6500, 7000)) +
+      facet_wrap(~year) +
+      coord_fixed() 
+    ggsave(resid_map, file = here(results_wd, reg, paste0("residuals_", stratum, ".pdf")),
+           height = 9, width = 6.5, units = "in")
+    
+    print(paste0("Completed qq & residuals map for ", reg, " ", stratum, " (", i, " of ", length(grid_list), ")"))
   }
+  
   ind_df <- bind_rows(ind_list)
   
   tictoc::toc()  # report time elapsed
+  
   return(ind_df)
 }
 
-indices <- bind_rows(index_by_area("STG"),
-                     index_by_area("STG_North"),
-                     index_by_area("STG_South"),
-                     index_by_area("STP"),
-                     index_by_area("STP_East"),
-                     index_by_area("STP_EB"),
-                     index_by_area("STP_Reef_Point"))
+stg <- index_by_area("STG")
+
+# indices <- bind_rows(index_by_area("STG"),
+#                      index_by_area("STG_North"),
+#                      index_by_area("STG_South"),
+#                      index_by_area("STP"),
+#                      index_by_area("STP_East"),
+#                      index_by_area("STP_EB"),
+#                      index_by_area("STP_Reef_Point"))
 
 # Plot index, scaled from kg to Mt
 indices$stratum <- factor(indices$stratum, 
@@ -202,18 +231,16 @@ ggsave(file = here(results_wd, "index.png"),
 # resids <- sims |>
 #   dharma_residuals(fit, test_uniformity = FALSE, return_DHARMa = TRUE)
 # fit$data$resids <- resids$scaledResiduals
-
-dat$resid <- residuals(fit)
-
-ggplot(subset(fit$data, !is.na(resids) & is.finite(resids)), aes(X, Y, col = resids)) +
-  scale_colour_gradient2(name = "residuals", midpoint = 0.5) +
-  geom_point(size = 0.7) +
-  scale_x_continuous(breaks = c(250, 750)) +
-  scale_y_continuous(breaks = c(6000, 6500, 7000)) +
-  facet_wrap(~year) +
-  coord_fixed() 
-ggsave(file = here(results_wd, "residuals_map.pdf"),
-       height = 9, width = 6.5, units = "in")
+# 
+# ggplot(subset(fit$data, !is.na(resids) & is.finite(resids)), aes(X, Y, col = resids)) +
+#   scale_colour_gradient2(name = "residuals", midpoint = 0.5) +
+#   geom_point(size = 0.7) +
+#   scale_x_continuous(breaks = c(250, 750)) +
+#   scale_y_continuous(breaks = c(6000, 6500, 7000)) +
+#   facet_wrap(~year) +
+#   coord_fixed() 
+# ggsave(file = here(results_wd, "residuals_map.pdf"),
+#        height = 9, width = 6.5, units = "in")
 
 # predictions on map plot, by year
 for(i in 1:nrow(final_combined_hr_polygons_projected_sf)) {
