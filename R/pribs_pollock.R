@@ -79,6 +79,7 @@ dat <- left_join(dat, env, by = "year")
 
 # Final data manipulation steps
 dat$year_f <- as.factor(dat$year)
+levels(dat$year_f) <- c(levels(dat$year_f), "2020")  # explicitly add 2020
 dat <- add_utm_columns(dat, ll_names = c("lon", "lat"), utm_crs = 32602, units = "km")
 
 # Fit model (if needed) -------------------------------------------------------
@@ -119,6 +120,7 @@ if(!exists("fit")) {
 # Calculate index for each area
 index_by_area <- function(reg) {
   tictoc::tic("Multi-area index expansion") # Start timer for index production
+  reg <- "STG"
   # Load in prediction grid created in prib_areas.R
   load(here("shapefiles", "processed", reg, "grid.Rdata"))
   
@@ -127,19 +129,19 @@ index_by_area <- function(reg) {
   
   ind_list <- vector("list", length = length(grid_list))
   for(i in 1:length(grid_list)) {
+    i <- 1
     df <- grid_list[[i]]
     stratum <- unique(df$stratum)  # for later labelling
     
     # replicate prediction grid for each year in data
-    pred_grid <- replicate_df(data.frame(df), "year_f", unique(dat$year_f))
-    pred_grid$year <- as.integer(as.character(factor(pred_grid$year_f)))
-    
+    pred_grid <- replicate_df(data.frame(df), "year", min(dat$year):max(dat$year))
+    pred_grid$year_f <- factor(pred_grid$year)
+
     # join with environmental covariate (cold pool)
     pred_grid <- left_join(pred_grid, env, by = "year")
     
     # get prediction
-    p <- predict(fit, newdata = pred_grid, return_tmb_object = TRUE,
-                 offset = rep(0, nrow(pred_grid)))
+    p <- predict(fit, newdata = pred_grid, return_tmb_object = TRUE)
     save(p, file = here(results_wd, reg, paste0("pred_", stratum,".Rdata")))
     
     # get index
