@@ -7,18 +7,20 @@ library(sdmTMB)
 library(dplyr)
 library(ggplot2)
 library(here)
-library(devtools)
 library(sf)
 
-# install_github("afsc-gap-products/akgfmaps", build_vignettes = TRUE)
+# pak::pkg_install("afsc-gap-products/coldpool")
+
+# pak::pkg_install("afsc-gap-products/akgfmaps", build_vignettes = TRUE)
 library(akgfmaps)
 
-# devtools::install_github("seananderson/ggsidekick")
+# pak::pkg_install("seananderson/ggsidekick")
 library(ggsidekick)
 theme_set(theme_sleek())
 
 # Get pollock CPUE data -------------------------------------------------------
-this_year <- as.numeric(format(Sys.Date(), "%Y"))
+# this_year <- as.numeric(format(Sys.Date(), "%Y"))
+this_year <- 2025
 
 kts <- 250  # Number of knots for the index model mesh
 
@@ -83,6 +85,7 @@ levels(dat$year_f) <- c(levels(dat$year_f), "2020")  # explicitly add 2020
 dat <- add_utm_columns(dat, ll_names = c("lon", "lat"), utm_crs = 32602, units = "km")
 
 # Fit model (if needed) -------------------------------------------------------
+start <- Sys.time()
 f1 <- here(results_wd, "fit.RDS")
 if (file.exists(f1)) {
   fit <- readRDS(f1)
@@ -105,6 +108,9 @@ if (file.exists(f1)) {
       control = control
     )
   }
+end <- Sys.time()
+fit_time <- difftime(end, start, units = "hours")
+fit_time
 
 # Check fit
 sanity(fit)
@@ -119,8 +125,7 @@ if(!exists("fit")) {
 
 # Calculate index for each area
 index_by_area <- function(reg) {
-  tictoc::tic("Multi-area index expansion") # Start timer for index production
-  reg <- "STG"
+  start <- Sys.time()  # start timer
   # Load in prediction grid created in prib_areas.R
   load(here("shapefiles", "processed", reg, "grid.Rdata"))
   
@@ -183,7 +188,7 @@ index_by_area <- function(reg) {
   
   ind_df <- bind_rows(ind_list)
   
-  tictoc::toc()  # report time elapsed
+  # Print elapsed time
   
   return(ind_df)
 }
