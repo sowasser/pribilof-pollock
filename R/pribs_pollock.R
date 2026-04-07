@@ -81,7 +81,6 @@ dat <- left_join(dat, env, by = "year")
 
 # Final data manipulation steps
 dat$year_f <- as.factor(dat$year)
-levels(dat$year_f) <- c(levels(dat$year_f), "2020")  # explicitly add 2020
 dat <- add_utm_columns(dat, ll_names = c("lon", "lat"), utm_crs = 32602, units = "km")
 
 # Fit model (if needed) -------------------------------------------------------
@@ -134,19 +133,19 @@ index_by_area <- function(reg) {
   
   ind_list <- vector("list", length = length(grid_list))
   for(i in 1:length(grid_list)) {
-    i <- 1
     df <- grid_list[[i]]
     stratum <- unique(df$stratum)  # for later labelling
     
     # replicate prediction grid for each year in data
-    pred_grid <- replicate_df(data.frame(df), "year", min(dat$year):max(dat$year))
-    pred_grid$year_f <- factor(pred_grid$year)
-
+    pred_grid <- replicate_df(data.frame(df), "year_f", unique(dat$year_f))
+    pred_grid$year <- as.integer(as.character(factor(pred_grid$year_f)))
+    
     # join with environmental covariate (cold pool)
     pred_grid <- left_join(pred_grid, env, by = "year")
     
     # get prediction
-    p <- predict(fit, newdata = pred_grid, return_tmb_object = TRUE)
+    p <- predict(fit, newdata = pred_grid, return_tmb_object = TRUE,
+                 offset = rep(0, nrow(pred_grid)))
     save(p, file = here(results_wd, reg, paste0("pred_", stratum,".Rdata")))
     
     # get index
@@ -166,7 +165,6 @@ index_by_area <- function(reg) {
     sims <- simulate(fit, nsim = 500, type = "mle-mvn")
     sims |> dharma_residuals(fit, test_uniformity = FALSE)
     dev.off()
-    print(paste0("Completed index for ", reg, " ", stratum, " (", i, " of ", length(grid_list), ")"))
 
     # residuals on map plot, by year
     resids <- sims |>
@@ -189,19 +187,21 @@ index_by_area <- function(reg) {
   ind_df <- bind_rows(ind_list)
   
   # Print elapsed time
+  end <- Sys.time()
+  print(paste0("Completed index for ", reg, " in ", round(difftime(end, start, units = "hours"), 2), " hours"))
   
   return(ind_df)
 }
 
-stg <- index_by_area("STG")
+# stg <- index_by_area("STG")
 
-# indices <- bind_rows(index_by_area("STG"),
-#                      index_by_area("STG_North"),
-#                      index_by_area("STG_South"),
-#                      index_by_area("STP"),
-#                      index_by_area("STP_East"),
-#                      index_by_area("STP_EB"),
-#                      index_by_area("STP_Reef_Point"))
+indices <- bind_rows(index_by_area("STG"),
+                     index_by_area("STG_North"),
+                     index_by_area("STG_South"),
+                     index_by_area("STP"),
+                     index_by_area("STP_East"),
+                     index_by_area("STP_EB"),
+                     index_by_area("STP_Reef_Point"))
 
 # Plot index, scaled from kg to Mt
 indices$stratum <- factor(indices$stratum, 
