@@ -116,6 +116,9 @@ sanity(fit)
 summary(fit)
 saveRDS(fit, file = here(results_wd, "fit.RDS"))
 
+fit_opt <- run_extra_optimization(fit)
+sanity(fit_opt)
+
 # Make predictions and index --------------------------------------------------
 # Read in fit if object is not already in environment
 if(!exists("fit")) {
