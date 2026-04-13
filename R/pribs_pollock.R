@@ -161,30 +161,6 @@ index_by_area <- function(reg) {
     
     ind_list[[i]] <- ind
     print(paste0("Completed index for ", reg, " ", stratum, " (", i, " of ", length(grid_list), ")"))
-    
-    # q-q plot
-    pdf(file = here(results_wd, reg, paste0("qq_", stratum, ".pdf")),
-        width = 5, height = 5)
-    sims <- simulate(fit, nsim = 500, type = "mle-mvn")
-    sims |> dharma_residuals(fit, test_uniformity = FALSE)
-    dev.off()
-
-    # residuals on map plot, by year
-    resids <- sims |>
-      dharma_residuals(fit, test_uniformity = FALSE, return_DHARMa = TRUE)
-    fit$data$resids <- resids$scaledResiduals
-    
-    resid_map <- ggplot(subset(fit$data, !is.na(resids) & is.finite(resids)), aes(X, Y, col = resids)) +
-      scale_colour_gradient2(name = "residuals", midpoint = 0.5) +
-      geom_point(size = 0.7) +
-      scale_x_continuous(breaks = c(250, 750)) +
-      scale_y_continuous(breaks = c(6000, 6500, 7000)) +
-      facet_wrap(~year) +
-      coord_fixed() 
-    ggsave(resid_map, file = here(results_wd, reg, paste0("residuals_", stratum, ".pdf")),
-           height = 9, width = 6.5, units = "in")
-    
-    print(paste0("Completed qq & residuals map for ", reg, " ", stratum, " (", i, " of ", length(grid_list), ")"))
   }
   
   ind_df <- bind_rows(ind_list)
@@ -227,30 +203,30 @@ ggsave(file = here(results_wd, "index.png"),
        height = 10, width = 12, units = "in")
 
 # Plot predicted density maps and fit diagnostics -----------------------------
-# # q-q plot
-# pdf(file = here(results_wd, "qq.pdf"),
-#     width = 5, height = 5)
-# sims <- simulate(fit, nsim = 500, type = "mle-mvn") 
-# sims |> dharma_residuals(fit, test_uniformity = FALSE) 
-# # previous is not working: 
-# # Error in `predict()`:
-# # ! Prediction offset vector does not equal number of rows in prediction dataset.
-# dev.off()
-# 
-# #residuals on map plot, by year
-# resids <- sims |>
-#   dharma_residuals(fit, test_uniformity = FALSE, return_DHARMa = TRUE)
-# fit$data$resids <- resids$scaledResiduals
-# 
-# ggplot(subset(fit$data, !is.na(resids) & is.finite(resids)), aes(X, Y, col = resids)) +
-#   scale_colour_gradient2(name = "residuals", midpoint = 0.5) +
-#   geom_point(size = 0.7) +
-#   scale_x_continuous(breaks = c(250, 750)) +
-#   scale_y_continuous(breaks = c(6000, 6500, 7000)) +
-#   facet_wrap(~year) +
-#   coord_fixed() 
-# ggsave(file = here(results_wd, "residuals_map.pdf"),
-#        height = 9, width = 6.5, units = "in")
+# q-q plot
+pdf(file = here(results_wd, "qq.pdf"),
+    width = 5, height = 5)
+sims <- simulate(fit, nsim = 500, type = "mle-mvn") 
+sims |> dharma_residuals(fit, test_uniformity = FALSE) 
+# previous is not working: 
+# Error in `predict()`:
+# ! Prediction offset vector does not equal number of rows in prediction dataset.
+dev.off()
+
+#residuals on map plot, by year
+resids <- sims |>
+  dharma_residuals(fit, test_uniformity = FALSE, return_DHARMa = TRUE)
+fit$data$resids <- resids$scaledResiduals
+
+ggplot(subset(fit$data, !is.na(resids) & is.finite(resids)), aes(X, Y, col = resids)) +
+  scale_colour_gradient2(name = "residuals", midpoint = 0.5) +
+  geom_point(size = 0.7) +
+  scale_x_continuous(breaks = c(250, 750)) +
+  scale_y_continuous(breaks = c(6000, 6500, 7000)) +
+  facet_wrap(~year) +
+  coord_fixed() 
+ggsave(file = here(results_wd, "residuals_map.pdf"),
+       height = 9, width = 6.5, units = "in")
 
 # predictions on map plot, by year
 for(i in 1:nrow(final_combined_hr_polygons_projected_sf)) {
