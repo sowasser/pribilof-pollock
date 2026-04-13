@@ -116,8 +116,9 @@ sanity(fit)
 summary(fit)
 saveRDS(fit, file = here(results_wd, "fit.RDS"))
 
-fit_opt <- run_extra_optimization(fit)
-sanity(fit_opt)
+# Extra optimization if needed
+# fit_opt <- run_extra_optimization(fit)
+# sanity(fit_opt)
 
 # Make predictions and index --------------------------------------------------
 # Read in fit if object is not already in environment
@@ -129,7 +130,7 @@ if(!exists("fit")) {
 index_by_area <- function(reg) {
   start <- Sys.time()  # start timer
   # Load in prediction grid created in prib_areas.R
-  load(here("shapefiles", "processed", reg, "grid.Rdata"))
+  load(here("shapefiles", "processed", reg, "grid.Rdata"))  # this is grid_list
   
   # Create a folder for each index area
   dir.create(here(results_wd, reg), recursive = TRUE, showWarnings = FALSE)
@@ -139,40 +140,72 @@ index_by_area <- function(reg) {
     df <- grid_list[[i]]
     stratum <- unique(df$stratum)  # for later labelling
     
-    # replicate prediction grid for each year in data
-    pred_grid <- replicate_df(data.frame(df), "year_f", unique(dat$year_f))
-    pred_grid$year <- as.integer(as.character(factor(pred_grid$year_f)))
+    pred_file <- here(results_wd, reg, paste0("pred_", stratum,".Rdata"))
+    if (!file.exists(pred_file)) {
+      pred_grid <- replicate_df(data.frame(df), "year_f", unique(dat$year_f))
+      pred_grid$year <- as.integer(as.character(factor(pred_grid$year_f)))
+      
+      # join with environmental covariate (cold pool)
+      pred_grid <- left_join(pred_grid, env, by = "year")
+      
+      # get prediction
+      p <- predict(fit, newdata = pred_grid, return_tmb_object = TRUE,
+                  offset = rep(0, nrow(pred_grid)))
+      save(p, file = here(results_wd, reg, paste0("pred_", stratum,".Rdata")))
+      
+      # get index
+      ind <- get_index(p, bias_correct = TRUE, area = pred_grid$area_km2)
+      ind$stratum <- stratum
+      ind$region <- reg
+
+      write.csv(ind, 
+          file = here(results_wd, reg, paste0("index_", stratum, ".csv")), 
+          row.names = FALSE
+        )
+      ind_list[[i]] <- ind
+    } else {
+      print(paste0("Predictions already exist for ", reg, " ", stratum, "; loading from file"))
+      load(pred_file)  # this is p
+      ind_list[[i]] <- NULL
+    }
+
+    # Map of predicted density
+    pdata <- p$data
+    pdata$stratum <- stratum
+    pred_map <- ggplot(pdata, aes(X, Y, fill = est1 + est2)) +
+      geom_tile(width = 10, height = 10) +
+      scale_fill_viridis_c(trans = "sqrt", name = "") +
+      scale_x_continuous(breaks = c(250, 750)) +
+      scale_y_continuous(breaks = c(6000, 6500, 7000)) +
+      facet_wrap(~year) +
+      xlab("") + ylab("") +
+      coord_fixed() +
+      {
+        if (data_type == "numbers") {
+          ggtitle("Predicted log density (numbers / square km)")
+        } else if (data_type == "biomass") {
+          ggtitle("Predicted log density (kg / square km)")
+        }
+      }
     
-    # join with environmental covariate (cold pool)
-    pred_grid <- left_join(pred_grid, env, by = "year")
-    
-    # get prediction
-    p <- predict(fit, newdata = pred_grid, return_tmb_object = TRUE,
-                 offset = rep(0, nrow(pred_grid)))
-    save(p, file = here(results_wd, reg, paste0("pred_", stratum,".Rdata")))
-    
-    # get index
-    ind <- get_index(p, bias_correct = TRUE, area = pred_grid$area_km2)
-    ind$stratum <- stratum
-    ind$region <- reg
-    # write.csv(ind, 
-    #           file = here(results_wd, reg, paste0("index_", stratum, ".csv")), 
-    #           row.names = FALSE)
-    
-    ind_list[[i]] <- ind
-    print(paste0("Completed index for ", reg, " ", stratum, " (", i, " of ", length(grid_list), ")"))
+    ggsave(pred_map, file = here(results_wd, reg, paste0("pred_map_", stratum, ".pdf")),
+           height = 7, width = 7, units = "in")
   }
   
   ind_df <- bind_rows(ind_list)
-  
-  # Print elapsed time
+  return(ind_df)
+
   end <- Sys.time()
   print(paste0("Completed index for ", reg, " in ", round(difftime(end, start, units = "hours"), 2), " hours"))
-  
-  return(ind_df)
 }
 
-# stg <- index_by_area("STG")
+# index_by_area("STG")
+index_by_area("STG_North")
+index_by_area("STG_South")
+index_by_area("STP")
+index_by_area("STP_East")
+index_by_area("STP_EB")
+index_by_area("STP_Reef_Point")
 
 indices <- bind_rows(index_by_area("STG"),
                      index_by_area("STG_North"),
@@ -224,30 +257,7 @@ ggplot(subset(fit$data, !is.na(resids) & is.finite(resids)), aes(X, Y, col = res
   scale_x_continuous(breaks = c(250, 750)) +
   scale_y_continuous(breaks = c(6000, 6500, 7000)) +
   facet_wrap(~year) +
+  xlab("") + ylab("") +
   coord_fixed() 
 ggsave(file = here(results_wd, "residuals_map.pdf"),
        height = 9, width = 6.5, units = "in")
-
-# predictions on map plot, by year
-for(i in 1:nrow(final_combined_hr_polygons_projected_sf)) {
-  dir_name <- paste0("radius", final_combined_hr_polygons_projected_sf$associated_circle_radius_meters[i])
-  load(here(results_wd, dir_name, "pred.Rdata"))
-  p <- p$data
-  p$radius <- final_combined_hr_polygons_projected_sf$associated_circle_radius_meters[i]
-  pred_map <- ggplot(p, aes(X, Y, fill = exp(est1 + est2))) +
-    geom_tile(width = 10, height = 10) +
-    scale_fill_viridis_c(trans = "sqrt", name = "") +
-    scale_x_continuous(breaks = c(250, 750)) +
-    scale_y_continuous(breaks = c(6000, 6500, 7000)) +
-    facet_wrap(~year) +
-    coord_fixed() +
-    {
-      if (data_type == "numbers") {
-        ggtitle("Predicted densitites (numbers / square km)")
-      } else if (data_type == "biomass") {
-        ggtitle("Predicted densitites (kg / square km)")
-      }
-    }
-  ggsave(pred_map, file = here(results_wd, dir_name, "predictions_map.pdf"),
-         height = 7, width = 7, units = "in")
-}
