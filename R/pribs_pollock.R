@@ -188,7 +188,7 @@ index_by_area <- function(reg) {
         }
       }
     
-    ggsave(pred_map, file = here(results_wd, reg, paste0("pred_map_", stratum, ".pdf")),
+    ggsave(pred_map, file = here(results_wd, reg, paste0("log_pred_map_", stratum, ".pdf")),
            height = 7, width = 7, units = "in")
   }
   
@@ -199,7 +199,7 @@ index_by_area <- function(reg) {
   print(paste0("Completed index for ", reg, " in ", round(difftime(end, start, units = "hours"), 2), " hours"))
 }
 
-# index_by_area("STG")
+index_by_area("STG")
 index_by_area("STG_North")
 index_by_area("STG_South")
 index_by_area("STP")
