@@ -117,8 +117,8 @@ summary(fit)
 saveRDS(fit, file = here(results_wd, "fit.RDS"))
 
 # Extra optimization if needed
-# fit_opt <- run_extra_optimization(fit)
-# sanity(fit_opt)
+fit_opt <- run_extra_optimization(fit)
+sanity(fit_opt)
 
 # Make predictions and index --------------------------------------------------
 # Read in fit if object is not already in environment
@@ -199,21 +199,15 @@ index_by_area <- function(reg) {
   print(paste0("Completed index for ", reg, " in ", round(difftime(end, start, units = "hours"), 2), " hours"))
 }
 
-index_by_area("STG")
-index_by_area("STG_North")
-index_by_area("STG_South")
-index_by_area("STP")
-index_by_area("STP_East")
-index_by_area("STP_EB")
-index_by_area("STP_Reef_Point")
+stg <- index_by_area("STG")
+stg_n <- index_by_area("STG_North")
+stg_s <- index_by_area("STG_South")
+stp <- index_by_area("STP")
+stp_e <- index_by_area("STP_East")
+stp_eb <- index_by_area("STP_EB")
+stp_rp <- index_by_area("STP_Reef_Point")
 
-indices <- bind_rows(index_by_area("STG"),
-                     index_by_area("STG_North"),
-                     index_by_area("STG_South"),
-                     index_by_area("STP"),
-                     index_by_area("STP_East"),
-                     index_by_area("STP_EB"),
-                     index_by_area("STP_Reef_Point"))
+indices <- bind_rows(stg, stg_n, stg_s, stp, stp_e, stp_eb, stp_rp)
 
 # Plot index, scaled from kg to Mt
 indices$stratum <- factor(indices$stratum, 
