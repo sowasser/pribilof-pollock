@@ -174,7 +174,7 @@ index_by_area <- function(reg) {
     pdata$stratum <- stratum
     pred_map <- ggplot(pdata, aes(X, Y, fill = est1 + est2)) +
       geom_tile(width = 10, height = 10) +
-      scale_fill_viridis_c(trans = "sqrt", name = "") +
+      scale_fill_viridis_c(name = "") +
       scale_x_continuous(breaks = c(250, 750)) +
       scale_y_continuous(breaks = c(6000, 6500, 7000)) +
       facet_wrap(~year) +
