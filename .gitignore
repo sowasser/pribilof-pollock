@@ -56,3 +56,6 @@ rsconnect/
 # Plot images
 *.png
 *.pdf
+
+# Exception for mesh
+!shapefiles/ebs_vast_mesh_250_knots.RDS
