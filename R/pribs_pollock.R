@@ -37,7 +37,30 @@ if(data_type == "numbers") {
 }
 
 if(data_type == "biomass") {
-  dat <- read.csv(here("data", "VAST_ddc_all_2025.csv"))
+  file <- here("data", paste0("VAST_ddc_all_", this_year, ".csv"))
+  if(!file.exists(file)) {
+    dir.create(here("data"), recursive = TRUE, showWarnings = FALSE)
+    library(googledrive)
+    
+    # Update stale Google Drive authorization if needed
+    gdrive_email <- rstudioapi::showPrompt(title = "Email",
+                                           message = "Email for Google Drive",
+                                           default = "")
+    drive_auth(token = gargle::credentials_user_oauth2(
+      scopes = "https://www.googleapis.com/auth/drive",
+      email = gdrive_email))
+    drive_user()  # check user account
+    
+    # Download from google drive
+    file_id <- "1Kn_wftvGyylCTMTD-daHpFqoxanTMBXz"
+    
+    drive_download(file = as_id(file_id),
+                   path = here("data", paste0("VAST_ddc_all_", this_year, ".csv")),
+                   overwrite = TRUE)
+    dat <- read.csv(file)
+  } else {
+    dat <- read.csv(file)
+  }
   colnames(dat)[3:5] <- c("lat", "lon", "cpue")
 }
 
