@@ -123,7 +123,7 @@ sanity(fit_opt)
 # Make predictions and index --------------------------------------------------
 # Read in fit if object is not already in environment
 if(!exists("fit")) {
-  fit <- readRDS(here(results_wd, "fit.RDS"))
+  fit <- sdmTMB:::reload_model(here(results_wd, "fit.RDS"))
 }
 
 # Calculate index for each area
@@ -133,28 +133,38 @@ index_by_area <- function(reg) {
   load(here("shapefiles", "processed", reg, "grid.Rdata"))  # this is grid_list
   
   # Create a folder for each index area
-  dir.create(here(results_wd, reg), recursive = TRUE, showWarnings = FALSE)
+  if(!dir.exists(here(results_wd, reg))) {
+    dir.create(here(results_wd, reg), recursive = TRUE, showWarnings = FALSE)
+  }
   
   ind_list <- vector("list", length = length(grid_list))
   for(i in 1:length(grid_list)) {
     df <- grid_list[[i]]
     stratum <- unique(df$stratum)  # for later labelling
+
+    # Create prediction grid
+    pred_grid <- replicate_df(data.frame(df), "year_f", unique(dat$year_f))
+    pred_grid$year <- as.integer(as.character(factor(pred_grid$year_f)))
+      
+    # join with environmental covariate (cold pool)
+    pred_grid <- left_join(pred_grid, env, by = "year")
     
+    # Get predictions (if hasn't been done already) or load saved file
     pred_file <- here(results_wd, reg, paste0("pred_", stratum,".Rdata"))
     if (!file.exists(pred_file)) {
-      pred_grid <- replicate_df(data.frame(df), "year_f", unique(dat$year_f))
-      pred_grid$year <- as.integer(as.character(factor(pred_grid$year_f)))
-      
-      # join with environmental covariate (cold pool)
-      pred_grid <- left_join(pred_grid, env, by = "year")
-      
-      # get prediction
+      # get predictions
+      print(paste0("Predicting for ", reg, " ", stratum))
       p <- predict(fit, newdata = pred_grid, return_tmb_object = TRUE,
                   offset = rep(0, nrow(pred_grid)))
       save(p, file = here(results_wd, reg, paste0("pred_", stratum,".Rdata")))
-      
+
+    } else {
+      print(paste0("Predictions already exist for ", reg, " ", stratum, "; loading from file"))
+      load(pred_file)  # this is p
+    }
+
       # get index
-      ind <- get_index(p, bias_correct = TRUE, area = pred_grid$area_km2)
+      ind <- get_index(p, bias_correct = TRUE, area = p$data$area_km2)
       ind$stratum <- stratum
       ind$region <- reg
 
@@ -163,15 +173,11 @@ index_by_area <- function(reg) {
           row.names = FALSE
         )
       ind_list[[i]] <- ind
-    } else {
-      print(paste0("Predictions already exist for ", reg, " ", stratum, "; loading from file"))
-      load(pred_file)  # this is p
-      ind_list[[i]] <- NULL
     }
 
     # Map of predicted density
     pdata <- p$data
-    pdata$stratum <- stratum
+    # pdata$stratum <- stratum
     pred_map <- ggplot(pdata, aes(X, Y, fill = est1 + est2)) +
       geom_tile(width = 10, height = 10) +
       scale_fill_viridis_c(name = "") +
@@ -182,15 +188,14 @@ index_by_area <- function(reg) {
       coord_fixed() +
       {
         if (data_type == "numbers") {
-          ggtitle("Predicted log density (numbers / square km)")
+          ggtitle(expression("Predicted log density (numbers / km"^2*")"))
         } else if (data_type == "biomass") {
-          ggtitle("Predicted log density (kg / square km)")
+          ggtitle(expression("Predicted log density (kg / km"^2*")"))
         }
       }
     
     ggsave(pred_map, file = here(results_wd, reg, paste0("log_pred_map_", stratum, ".pdf")),
            height = 7, width = 7, units = "in")
-  }
   
   ind_df <- bind_rows(ind_list)
   return(ind_df)
@@ -255,3 +260,41 @@ ggplot(subset(fit$data, !is.na(resids) & is.finite(resids)), aes(X, Y, col = res
   coord_fixed() 
 ggsave(file = here(results_wd, "residuals_map.pdf"),
        height = 9, width = 6.5, units = "in")
+
+
+# Extra code for just plotting predicted density maps 
+den_maps <- function(reg) {
+  load(here("shapefiles", "processed", reg, "grid.Rdata"))  # this is grid_list
+  
+  for(i in 1:length(grid_list)) {
+    df <- grid_list[[i]]
+    stratum <- unique(df$stratum)  # for later labelling
+
+    load(file = here(results_wd, reg, paste0("pred_", stratum, ".Rdata")))  # this is p
+
+    # Map of predicted density
+    pdata <- p$data
+    pred_map <- ggplot(pdata, aes(X, Y, fill = est1 + est2)) +
+      geom_tile(width = 10, height = 10) +
+      scale_fill_viridis_c(name = "") +
+      scale_x_continuous(breaks = c(250, 750)) +
+      scale_y_continuous(breaks = c(6000, 6500, 7000)) +
+      facet_wrap(~ year) +
+      xlab("") + ylab("") +
+      coord_fixed() +
+      {
+        if (data_type == "numbers") {
+          ggtitle("Predicted log density (numbers / square km)")
+        } else if (data_type == "biomass") {
+          ggtitle("Predicted log density (kg / square km)")
+        }
+      }
+    
+    ggsave(pred_map, file = here(results_wd, reg, paste0("pred_map_", stratum, ".pdf")),
+           height = 7, width = 7, units = "in")
+  }
+}
+
+for(reg in c("STG", "STG_North", "STG_South", "STP", "STP_East", "STP_EB", "STP_Reef_Point")) {
+  den_maps(reg)
+}
