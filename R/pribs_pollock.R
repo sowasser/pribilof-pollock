@@ -68,25 +68,23 @@ if(data_type == "biomass") {
 unique(is.na(dat))
 
 # detect if any years have occurrences at every haul and fix params as needed
-if(data_type == "numbers") {
-  mins <- dat %>% group_by(year) %>% summarize(min = min(cpue))
-  if (sum(mins$min, na.rm = TRUE) == 0) {
-    control = sdmTMBcontrol()
-  } else {
-    no_zero_yr <- as.integer(mins %>% filter(min > 0) %>% select(year))
-    # set up map and fix value of p(occurrence) to slightly less than 1:
-    yrs <- sort(unique(factor(dat$year)))
-    .map <- seq_along(yrs)
-    .map[yrs %in% no_zero_yr] <- NA
-    .map <- factor(.map)
-    .start <- rep(0, length(yrs))
-    .start[yrs %in% no_zero_yr] <- 20
-    
-    control =  sdmTMBcontrol(
-      map = list(b_j = .map),
-      start = list(b_j = .start)
-    )
-  }
+mins <- dat %>% group_by(year) %>% summarize(min = min(cpue))
+if (sum(mins$min, na.rm = TRUE) == 0) {
+  control = sdmTMBcontrol()
+} else {
+  no_zero_yr <- as.integer(mins %>% filter(min > 0) %>% select(year))
+  # set up map and fix value of p(occurrence) to slightly less than 1:
+  yrs <- sort(unique(factor(dat$year)))
+  .map <- seq_along(yrs)
+  .map[yrs %in% no_zero_yr] <- NA
+  .map <- factor(.map)
+  .start <- rep(0, length(yrs))
+  .start[yrs %in% no_zero_yr] <- 20
+  
+  control =  sdmTMBcontrol(
+    map = list(b_j = .map),
+    start = list(b_j = .start)
+  )
 }
 
 # Set up cold pool covariate
