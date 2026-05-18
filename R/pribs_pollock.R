@@ -235,10 +235,13 @@ stp_rp <- index_by_area("STP_Reef_Point")
 
 indices <- bind_rows(stg, stg_n, stg_s, stp, stp_e, stp_eb, stp_rp)
 
-# Plot index, scaled from kg to Mt
+# Combine all indices and plot
 indices$stratum <- factor(indices$stratum, 
                           levels = c("all", "250", "225", "200", "175", "150", 
                                      "125", "100", "75", "50", "25"))
+
+write.csv(indices, file = here(results_wd, paste0("index_", data_type, ".csv")), row.names = FALSE)
+
 ggplot(indices, aes(x = year, y = (est / 1e9))) +
   geom_line() +
   geom_ribbon(aes(ymin = (lwr / 1e9), ymax = (upr / 1e9)), alpha = 0.4) +
@@ -283,39 +286,39 @@ ggsave(file = here(results_wd, "residuals_map.pdf"),
        height = 9, width = 6.5, units = "in")
 
 
-# Extra code for just plotting predicted density maps 
-den_maps <- function(reg) {
-  load(here("shapefiles", "processed", reg, "grid.Rdata"))  # this is grid_list
+# # Extra code for just plotting predicted density maps 
+# den_maps <- function(reg) {
+#   load(here("shapefiles", "processed", reg, "grid.Rdata"))  # this is grid_list
   
-  for(i in 1:length(grid_list)) {
-    df <- grid_list[[i]]
-    stratum <- unique(df$stratum)  # for later labelling
+#   for(i in 1:length(grid_list)) {
+#     df <- grid_list[[i]]
+#     stratum <- unique(df$stratum)  # for later labelling
 
-    load(file = here(results_wd, reg, paste0("pred_", stratum, ".Rdata")))  # this is p
+#     load(file = here(results_wd, reg, paste0("pred_", stratum, ".Rdata")))  # this is p
 
-    # Map of predicted density
-    pdata <- p$data
-    pred_map <- ggplot(pdata, aes(X, Y, fill = est1 + est2)) +
-      geom_tile(width = 10, height = 10) +
-      scale_fill_viridis_c(name = "") +
-      scale_x_continuous(breaks = c(250, 750)) +
-      scale_y_continuous(breaks = c(6000, 6500, 7000)) +
-      facet_wrap(~ year) +
-      xlab("") + ylab("") +
-      coord_fixed() +
-      {
-        if (data_type == "numbers") {
-          ggtitle("Predicted log density (numbers / square km)")
-        } else if (data_type == "biomass") {
-          ggtitle("Predicted log density (kg / square km)")
-        }
-      }
+#     # Map of predicted density
+#     pdata <- p$data
+#     pred_map <- ggplot(pdata, aes(X, Y, fill = est1 + est2)) +
+#       geom_tile(width = 10, height = 10) +
+#       scale_fill_viridis_c(name = "") +
+#       scale_x_continuous(breaks = c(250, 750)) +
+#       scale_y_continuous(breaks = c(6000, 6500, 7000)) +
+#       facet_wrap(~ year) +
+#       xlab("") + ylab("") +
+#       coord_fixed() +
+#       {
+#         if (data_type == "numbers") {
+#           ggtitle("Predicted log density (numbers / square km)")
+#         } else if (data_type == "biomass") {
+#           ggtitle("Predicted log density (kg / square km)")
+#         }
+#       }
     
-    ggsave(pred_map, file = here(results_wd, reg, paste0("pred_map_", stratum, ".pdf")),
-           height = 7, width = 7, units = "in")
-  }
-}
+#     ggsave(pred_map, file = here(results_wd, reg, paste0("pred_map_", stratum, ".pdf")),
+#            height = 7, width = 7, units = "in")
+#   }
+# }
 
-for(reg in c("STG", "STG_North", "STG_South", "STP", "STP_East", "STP_EB", "STP_Reef_Point")) {
-  den_maps(reg)
-}
+# for(reg in c("STG", "STG_North", "STG_South", "STP", "STP_East", "STP_EB", "STP_Reef_Point")) {
+#   den_maps(reg)
+# }
