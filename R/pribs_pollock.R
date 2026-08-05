@@ -8,6 +8,7 @@ library(dplyr)
 library(ggplot2)
 library(here)
 library(sf)
+library(future.apply)
 
 # pak::pkg_install("afsc-gap-products/coldpool")
 
@@ -148,84 +149,106 @@ if(!exists("fit")) {
 }
 
 # Calculate index for each area
-index_by_area <- function(reg) {
-  start <- Sys.time()  # start timer
-  # Load in prediction grid created in prib_areas.R
-  load(here("shapefiles", "processed", reg, "grid.Rdata"))  # this is grid_list
+index_by_area <- function(reg, n_cores = availableCores() - 6, bias_corr = TRUE) {
+  start <- Sys.time() # start timer
+  
+  # Load prediction grid
+  load(here("shapefiles", "processed", reg, "grid.Rdata")) # grid_list
 
-  # Subset grid_list to include the "all" polygon and 50-125km.
-  grid_list <- grid_list[c(1, 3:6)]
+  # Subset grid_list to include the "all" polygon and 50-125km
+  # grid_list <- grid_list[c(1, 3:6)]
   
   # Create a folder for each index area
-  if(!dir.exists(here(results_wd, reg))) {
+  if (!dir.exists(here(results_wd, reg))) {
     dir.create(here(results_wd, reg), recursive = TRUE, showWarnings = FALSE)
   }
-  
-  ind_list <- vector("list", length = length(grid_list))
-  for(i in 1:length(grid_list)) {
+
+  # Set up parallel backend
+  plan(multisession, workers = n_cores)
+
+  # Parallel loop over strata in grid_list
+  ind_list <- future_lapply(seq_along(grid_list), function(i) {
     df <- grid_list[[i]]
-    stratum <- unique(df$stratum)  # for later labelling
+    stratum <- unique(df$stratum)
 
     # Create prediction grid
     pred_grid <- replicate_df(data.frame(df), "year_f", unique(dat$year_f))
-    pred_grid$year <- as.integer(as.character(factor(pred_grid$year_f)))
-      
-    # join with environmental covariate (cold pool)
+    pred_grid$year <- as.numeric(as.character(pred_grid$year_f))
     pred_grid <- left_join(pred_grid, env, by = "year")
-    
-    # Get predictions (if hasn't been done already) or load saved file
-    pred_file <- here(results_wd, reg, paste0("pred_", stratum,".Rdata"))
-    if (!file.exists(pred_file)) {
-      # get predictions
-      print(paste0("Predicting for ", reg, " ", stratum))
-      p <- predict(fit, newdata = pred_grid, return_tmb_object = TRUE,
-                  offset = rep(0, nrow(pred_grid)))
-      save(p, file = here(results_wd, reg, paste0("pred_", stratum,".Rdata")))
 
+    # Get predictions 
+    pred_file <- here(results_wd, reg, paste0("pred_", stratum,".Rdata"))
+
+    if (!file.exists(pred_file)) {
+      message("Predicting for ", reg, " ", stratum)
+      p <- predict(
+        fit, 
+        newdata = pred_grid, 
+        return_tmb_object = TRUE,
+        offset = rep(0, nrow(pred_grid))
+      )
+      save(p, file = here(results_wd, reg, paste0("pred_", stratum, ".Rdata"))) 
     } else {
-      print(paste0("Predictions already exist for ", reg, " ", stratum, "; loading from file"))
+      message("Predictions exist for ", reg, " ", stratum, "; loading from file")
       load(pred_file)  # this is p
     }
 
-      # get index
-      ind <- get_index(p, bias_correct = TRUE, area = p$data$area_km2)
-      ind$stratum <- stratum
-      ind$region <- reg
+    # Get index
+    ind <- get_index(p, bias_correct = bias_corr, area = p$data$area_km2)
+    ind$stratum <- stratum
+    ind$region <- reg
 
-      write.csv(ind, 
-          file = here(results_wd, reg, paste0("index_", stratum, ".csv")), 
-          row.names = FALSE
-        )
-      ind_list[[i]] <- ind
+    write.csv(
+      ind, 
+      file = file.path(
+        here(results_wd, reg), 
+        paste0("index_", stratum, ".csv")
+      ), 
+      row.names = FALSE
+    )
+
+    # Map of predicted density (inside stratum loop)
+    pdata <- p$data
+    title_label <- if (data_type == "numbers") {
+      expression("Predicted log density (numbers / km"^2*")")
+    } else if (data_type == "biomass") {
+      expression("Predicted log density (kg / km"^2*")")
+    } else {
+      "Predicted log density"
     }
 
-    # Map of predicted density
-    pdata <- p$data
-    # pdata$stratum <- stratum
     pred_map <- ggplot(pdata, aes(X, Y, fill = est1 + est2)) +
       geom_tile(width = 10, height = 10) +
       scale_fill_viridis_c(name = "") +
       scale_x_continuous(breaks = c(250, 750)) +
       scale_y_continuous(breaks = c(6000, 6500, 7000)) +
       facet_wrap(~year) +
-      xlab("") + ylab("") +
-      coord_fixed() +
-      {
-        if (data_type == "numbers") {
-          ggtitle(expression("Predicted log density (numbers / km"^2*")"))
-        } else if (data_type == "biomass") {
-          ggtitle(expression("Predicted log density (kg / km"^2*")"))
-        }
-      }
-    
-    ggsave(pred_map, file = here(results_wd, reg, paste0("log_pred_map_", stratum, ".pdf")),
-           height = 7, width = 7, units = "in")
-  
-  ind_df <- bind_rows(ind_list)
-  return(ind_df)
+      labs(x = NULL, y = NULL, title = title_label) +
+      coord_fixed()
 
+    ggsave(
+      pred_map, 
+      file = file.path(
+        here(results_wd, reg), 
+        paste0("log_pred_map_", stratum, ".pdf")
+      ),
+      height = 7, width = 7, units = "in"
+    )
+
+    return(ind)
+  }, future.seed = TRUE)
+
+  # Reset execution plan to sequential
+  plan(sequential)
+
+  # Combine output data frames
+  ind_df <- bind_rows(ind_list)
+
+  # Timer & Return
   end <- Sys.time()
-  print(paste0("Completed index for ", reg, " in ", round(difftime(end, start, units = "hours"), 2), " hours"))
+  message("Completed index for ", reg, " in ", round(difftime(end, start, units = "hours"), 2), " hours")
+
+  return(ind_df)
 }
 
 stg <- index_by_area("STG")
