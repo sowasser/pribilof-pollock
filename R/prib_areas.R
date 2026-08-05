@@ -17,7 +17,7 @@ library(ggsidekick)
 theme_set(theme_sleek())
 
 # Run grid creation at the sub-area level for each polygon
-region_grids <- function(polygon, label, save_plot = FALSE) {
+region_grids <- function(polygon, label, save_plot = TRUE) {
   df <- polygon
   
   # Clean up labels
@@ -28,7 +28,8 @@ region_grids <- function(polygon, label, save_plot = FALSE) {
   grid_by_area <- function(area) {
     polygon <- df$geometry[area]
     grid <- make_2d_grid(obj = polygon,
-                         resolution = c(3704, 3704),  # default resolution - 2x2nm
+                        #  resolution = c(3704, 3704),  # default resolution - 2x2nm
+                         resolution = c(9260, 9260),  # 5x5nm
                          output_type = "point",
                          include_tile_center = TRUE) %>%
       st_transform(crs = "EPSG:32602") 
@@ -68,11 +69,11 @@ region_grids <- function(polygon, label, save_plot = FALSE) {
   wd <- here("shapefiles", "processed")
   dir.create(here(wd, label), recursive = TRUE, showWarnings = FALSE)
   if(save_plot == TRUE) {
-    ggsave(plot, file = here(wd, label, paste0("pred_grids_", label, ".png")),
+    ggsave(plot, file = here(wd, label, paste0("pred_grids_", label, "_5nm.png")),
            height = 6, width = 7.5, units = c("in"))
   }
   
-  save(grid_list, file = here(wd, label, "grid.Rdata"))
+  save(grid_list, file = here(wd, label, "grid_5nm.Rdata"))
   return(grids)
 }
 
@@ -93,5 +94,5 @@ all_grids <- bind_rows(
 
 # Save as .csv for use in pribs_pollock.R script
 write.csv(all_grids, 
-          file = here("shapefiles", "processed", "island_complex_grids.csv"),
+          file = here("shapefiles", "processed", "island_complex_grids_5nm.csv"),
           row.names = FALSE)
