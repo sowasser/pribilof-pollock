@@ -19,8 +19,8 @@ library(ggsidekick)
 theme_set(theme_sleek())
 
 # Get pollock CPUE data -------------------------------------------------------
-# this_year <- as.numeric(format(Sys.Date(), "%Y"))
-this_year <- 2025
+this_year <- as.numeric(format(Sys.Date(), "%Y"))
+# this_year <- 2025
 
 kts <- 250  # Number of knots for the index model mesh
 
@@ -152,6 +152,9 @@ index_by_area <- function(reg) {
   start <- Sys.time()  # start timer
   # Load in prediction grid created in prib_areas.R
   load(here("shapefiles", "processed", reg, "grid.Rdata"))  # this is grid_list
+
+  # Subset grid_list to include the "all" polygon and 50-125km.
+  grid_list <- grid_list[c(1, 3:6)]
   
   # Create a folder for each index area
   if(!dir.exists(here(results_wd, reg))) {
