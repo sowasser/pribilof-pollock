@@ -238,21 +238,19 @@ stp_rp <- index_by_area("STP_Reef_Point")
 
 # Alternatively, read in existing index files ---------------------------------
 read_index <- function(reg) {
-  dir <- here(results_wd, reg)
-
   files <- list.files(
-    path = dir,
+    path = here(results_wd, reg),
     pattern = "^index_.*\\.csv$", 
     full.names = TRUE
   )
   
   # Check if any files were found
   if (length(files) == 0) {
-    warning("No index CSV files found in: ", dir)
+    warning("No index CSV files found in: ", here(results_wd, reg))
     return(NULL)
   }
   
-  message("Reading ", length(files), " index CSVs for region: ", reg)
+  message("Reading ", length(files), " index CSVs for region: ", here(results_wd, reg))
   
   # Read and combine all CSVs into a single data frame
   combined_df <- files %>%
@@ -274,7 +272,6 @@ stp <- read_index("STP")
 stp_e <- read_index("STP_East")
 stp_eb <- read_index("STP_EB")
 stp_rp <- read_index("STP_Reef_Point")
-
 
 # Combine all indices and plot ------------------------------------------------
 indices <- bind_rows(stg, stg_n, stg_s, stp, stp_e, stp_eb, stp_rp)
