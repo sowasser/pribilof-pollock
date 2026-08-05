@@ -25,7 +25,7 @@ this_year <- as.numeric(format(Sys.Date(), "%Y"))
 kts <- 250  # Number of knots for the index model mesh
 
 # Whether abundance will be in "numbers" or "biomass"
-data_type <- "numbers"
+data_type <- "biomass"
 
 # Make a new directory for the model output
 results_wd <- here("results", data_type, paste0(kts, "kts"))
@@ -88,7 +88,7 @@ if (sum(mins$min, na.rm = TRUE) == 0) {
 }
 
 # Set up cold pool covariate
-# devtools::install_github("afsc-gap-products/coldpool")
+# pak::pak("afsc-gap-products/coldpool")
 env_df <- coldpool::cold_pool_index
 if(max(!this_year %in% env_df$YEAR < this_year)) {
   print("You may need to remove and reinstall the coldpool package to get the newest data!")
@@ -236,9 +236,48 @@ stp_e <- index_by_area("STP_East")
 stp_eb <- index_by_area("STP_EB")
 stp_rp <- index_by_area("STP_Reef_Point")
 
-indices <- bind_rows(stg, stg_n, stg_s, stp, stp_e, stp_eb, stp_rp)
+# Alternatively, read in existing index files ---------------------------------
+read_index <- function(reg) {
+  dir <- here(results_wd, reg)
 
-# Combine all indices and plot
+  files <- list.files(
+    path = dir,
+    pattern = "^index_.*\\.csv$", 
+    full.names = TRUE
+  )
+  
+  # Check if any files were found
+  if (length(files) == 0) {
+    warning("No index CSV files found in: ", dir)
+    return(NULL)
+  }
+  
+  message("Reading ", length(files), " index CSVs for region: ", reg)
+  
+  # Read and combine all CSVs into a single data frame
+  combined_df <- files %>%
+  lapply(function(file) {
+    df <- read.csv(file)
+    # Force stratum to character type so bind_rows can combine numeric & text labels
+    df$stratum <- as.character(df$stratum)
+    return(df)
+  }) %>%
+  bind_rows()
+  
+  return(combined_df)
+}
+
+stg <- read_index("STG")
+stg_n <- read_index("STG_North")
+stg_s <- read_index("STG_South")
+stp <- read_index("STP")
+stp_e <- read_index("STP_East")
+stp_eb <- read_index("STP_EB")
+stp_rp <- read_index("STP_Reef_Point")
+
+
+# Combine all indices and plot ------------------------------------------------
+indices <- bind_rows(stg, stg_n, stg_s, stp, stp_e, stp_eb, stp_rp)
 indices$stratum <- factor(indices$stratum, 
                           levels = c("all", "250", "225", "200", "175", "150", 
                                      "125", "100", "75", "50", "25"))
