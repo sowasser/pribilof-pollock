@@ -90,9 +90,9 @@ if (sum(mins$min, na.rm = TRUE) == 0) {
 # Set up cold pool covariate
 # pak::pak("afsc-gap-products/coldpool")
 env_df <- coldpool::cold_pool_index
-if(max(!this_year %in% env_df$YEAR < this_year)) {
-  print("You may need to remove and reinstall the coldpool package to get the newest data!")
-}
+# if(max(!this_year %in% env_df$YEAR < this_year)) {
+#   print("You may need to remove and reinstall the coldpool package to get the newest data!")
+# }
 
 env <- cbind(env_df, env = scale(coldpool::cold_pool_index$AREA_LTE2_KM2)) %>%
   mutate(year = as.integer(YEAR)) %>%
@@ -154,7 +154,7 @@ index_by_area <- function(reg) {
   load(here("shapefiles", "processed", reg, "grid.Rdata"))  # this is grid_list
 
   # Subset grid_list to include the "all" polygon and 50-125km.
-  grid_list <- grid_list[c(1, 3:6)]
+  # grid_list <- grid_list[c(1, 3:6)]
   
   # Create a folder for each index area
   if(!dir.exists(here(results_wd, reg))) {
@@ -187,19 +187,18 @@ index_by_area <- function(reg) {
       load(pred_file)  # this is p
     }
 
-      # get index
-      ind <- get_index(p, bias_correct = TRUE, area = p$data$area_km2)
-      ind$stratum <- stratum
-      ind$region <- reg
+    # get index
+    ind_file <- here(results_wd, reg, paste0("index_", stratum, ".csv"))
+    ind <- get_index(p, bias_correct = TRUE, area = p$data$area_km2)
+    ind$stratum <- stratum
+    ind$region <- reg
 
-      write.csv(ind, 
-          file = here(results_wd, reg, paste0("index_", stratum, ".csv")), 
-          row.names = FALSE
-        )
-      ind_list[[i]] <- ind
-    }
-
-    # Map of predicted density
+    write.csv(ind, 
+        file = here(results_wd, reg, paste0("index_", stratum, ".csv")), 
+        row.names = FALSE
+      )
+    
+        # Map of predicted density
     pdata <- p$data
     # pdata$stratum <- stratum
     pred_map <- ggplot(pdata, aes(X, Y, fill = est1 + est2)) +
@@ -220,12 +219,16 @@ index_by_area <- function(reg) {
     
     ggsave(pred_map, file = here(results_wd, reg, paste0("log_pred_map_", stratum, ".pdf")),
            height = 7, width = 7, units = "in")
-  
+    
+      ind_list[[i]] <- ind
+  }
+
   ind_df <- bind_rows(ind_list)
-  return(ind_df)
 
   end <- Sys.time()
   print(paste0("Completed index for ", reg, " in ", round(difftime(end, start, units = "hours"), 2), " hours"))
+  
+  return(ind_df)
 }
 
 stg <- index_by_area("STG")
