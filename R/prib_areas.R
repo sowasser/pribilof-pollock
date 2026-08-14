@@ -21,7 +21,6 @@ region_grids <- function(polygon, label, save_plot = TRUE) {
   df <- polygon
   
   # Clean up labels
-  df$associated_circle_radius_meters <- df$associated_circle_radius_meters / 1000
   df$associated_circle_radius_meters[1] <- "all"
   
   # Create expansion grid for each sub-area
