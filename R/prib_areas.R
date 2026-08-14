@@ -96,3 +96,28 @@ all_grids <- bind_rows(
 write.csv(all_grids, 
           file = here("shapefiles", "processed", "island_complex_grids_5nm.csv"),
           row.names = FALSE)
+
+# Plot "all" polygons on a map ------------------------------------------------
+world <- rnaturalearth::ne_countries(scale = "medium", returnclass = "sf")
+sf_use_s2(FALSE)  # turn off spherical geometry
+
+grids_sf <- all_grids %>%
+  filter(stratum == "all") %>%
+  mutate(X_m = X * 1000, Y_m = Y * 1000) %>%  # Convert km back to meters
+  st_as_sf(coords = c("X_m", "Y_m"), crs = 32602)
+
+# add survey strata on top
+library(akgfmaps)
+grid <- get_base_layers(select.region = "bs.all", 
+                        design.year = 2026)
+
+ggplot() +
+  geom_sf(data = world, fill = "grey90", color = "grey60") +
+  geom_sf(data = grids_sf, aes(color = area_km2), size = 0.8) +
+  geom_sf(data = grid$survey.strata, aes(color = STRATUM), 
+        fill = "NA", linewidth = 0.4) +
+  geom_sf_text(data = grid$survey.strata, aes(label = STRATUM, color = STRATUM)) +
+  scale_colour_viridis_c(direction = -1) +
+  coord_sf(xlim = c(-179, -157), ylim = c(53.8, 63.5), expand = FALSE) +
+  labs(x = NULL, y = NULL, color = "Area (km²)") +
+  facet_wrap(~region) 
