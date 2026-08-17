@@ -8,11 +8,11 @@ library(here)
 library(dplyr)
 library(sf)
 
-# install_github("afsc-gap-products/akgfmaps", build_vignettes = TRUE)
+# pak::pkg_install("afsc-gap-products/akgfmaps")
 library(akgfmaps)
 
 # ggplot theme
-# devtools::install_github("seananderson/ggsidekick")
+# pak::pkg_install("seananderson/ggsidekick")
 library(ggsidekick)
 theme_set(theme_sleek())
 
@@ -21,17 +21,18 @@ region_grids <- function(polygon, label, save_plot = TRUE) {
   df <- polygon
   
   # Clean up labels
+  df$associated_circle_radius_meters <- df$associated_circle_radius_meters / 1000
   df$associated_circle_radius_meters[1] <- "all"
   
   # Create expansion grid for each sub-area
   grid_by_area <- function(area) {
-    polygon <- df$geometry[area]
+    polygon <- df$geometry[area] 
     grid <- make_2d_grid(obj = polygon,
-                        #  resolution = c(3704, 3704),  # default resolution - 2x2nm
-                         resolution = c(9260, 9260),  # 5x5nm
+                         resolution = c(3704, 3704),  # default resolution - 2x2nm
+                        #  resolution = c(9260, 9260),  # 5x5nm
                          output_type = "point",
                          include_tile_center = TRUE) %>%
-      st_transform(crs = "EPSG:32602") 
+      st_transform(crs = "EPSG:3338")
     
     grid[, c("LON_UTM", "LAT_UTM")] <- st_coordinates(grid)
     
@@ -39,7 +40,7 @@ region_grids <- function(polygon, label, save_plot = TRUE) {
       select(LON_UTM, LAT_UTM, AREA) %>%
       mutate(X = LON_UTM / 1000,
              Y = LAT_UTM / 1000,
-             area_km2 = as.numeric(AREA)/1e6) %>%
+             area_km2 = AREA) %>%
       select(X, Y, area_km2)
     grid <- as.data.frame(as.matrix(grid)) # drop attributes
     grid$stratum <- df$associated_circle_radius_meters[area]
@@ -54,6 +55,7 @@ region_grids <- function(polygon, label, save_plot = TRUE) {
                            labels = c("25km", "50km", "75km", "100km", "125km", "150km", "175km", "200km", "225km", "250km", "all")
   )
   grids$region <- label
+  print(summary(as.numeric(grids$area_km2) / 1e6))
   
   plot <- ggplot(grids, aes(X, Y, colour = area_km2)) +
     geom_tile(width = 2, height = 2, fill = NA) +
@@ -72,7 +74,7 @@ region_grids <- function(polygon, label, save_plot = TRUE) {
            height = 6, width = 7.5, units = c("in"))
   }
   
-  save(grid_list, file = here(wd, label, "grid_5nm.Rdata"))
+  save(grid_list, file = here(wd, label, "grid.Rdata"))
   return(grids)
 }
 
@@ -103,19 +105,17 @@ sf_use_s2(FALSE)  # turn off spherical geometry
 grids_sf <- all_grids %>%
   filter(stratum == "all") %>%
   mutate(X_m = X * 1000, Y_m = Y * 1000) %>%  # Convert km back to meters
-  st_as_sf(coords = c("X_m", "Y_m"), crs = 32602)
+  st_as_sf(coords = c("X_m", "Y_m"), crs = 3338)
 
 # add survey strata on top
-library(akgfmaps)
 grid <- get_base_layers(select.region = "bs.all", 
-                        design.year = 2026)
+                        design.year = 2022)
 
 ggplot() +
   geom_sf(data = world, fill = "grey90", color = "grey60") +
   geom_sf(data = grids_sf, aes(color = area_km2), size = 0.8) +
-  geom_sf(data = grid$survey.strata, aes(color = STRATUM), 
-        fill = "NA", linewidth = 0.4) +
-  geom_sf_text(data = grid$survey.strata, aes(label = STRATUM, color = STRATUM)) +
+  geom_sf(data = grid$survey.strata, fill = "NA", linewidth = 0.4, color = "darkorchid") +
+  geom_sf_text(data = grid$survey.strata, aes(label = STRATUM), color = "darkorchid") +
   scale_colour_viridis_c(direction = -1) +
   coord_sf(xlim = c(-179, -157), ylim = c(53.8, 63.5), expand = FALSE) +
   labs(x = NULL, y = NULL, color = "Area (km²)") +
