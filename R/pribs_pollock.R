@@ -25,7 +25,7 @@ this_year <- as.numeric(format(Sys.Date(), "%Y"))
 kts <- 250  # Number of knots for the index model mesh
 
 # Whether abundance will be in "numbers" or "biomass"
-data_type <- "biomass"
+data_type <- "numbers"
 
 # Make a new directory for the model output
 results_wd <- here("results", data_type, paste0(kts, "kts"))
@@ -102,7 +102,7 @@ dat <- left_join(dat, env, by = "year")
 
 # Final data manipulation steps
 dat$year_f <- as.factor(dat$year)
-dat <- add_utm_columns(dat, ll_names = c("lon", "lat"), utm_crs = 32602, units = "km")
+dat <- add_utm_columns(dat, ll_names = c("lon", "lat"), utm_crs = 3338, units = "km")
 
 # Fit model (if needed) -------------------------------------------------------
 start <- Sys.time()
@@ -135,11 +135,14 @@ fit_time
 # Check fit
 sanity(fit)
 summary(fit)
-saveRDS(fit, file = here(results_wd, "fit.RDS"))
+
+# Safer file saving (hopefully)
+temp_f1 <- tempfile(fileext = ".RDS")
+saveRDS(fit, file = here(results_wd, temp_f1), compress = TRUE)
 
 # Extra optimization if needed
-fit_opt <- run_extra_optimization(fit)
-sanity(fit_opt)
+# fit_opt <- run_extra_optimization(fit)
+# sanity(fit_opt)
 
 # Make predictions and index --------------------------------------------------
 # Read in fit if object is not already in environment
@@ -154,7 +157,7 @@ index_by_area <- function(reg) {
   load(here("shapefiles", "processed", reg, "grid.Rdata"))  # this is grid_list
 
   # Subset grid_list to include the "all" polygon and 50-125km.
-  # grid_list <- grid_list[c(1, 3:6)]
+  grid_list <- grid_list[c(1:6)]
   
   # Create a folder for each index area
   if(!dir.exists(here(results_wd, reg))) {
@@ -240,41 +243,41 @@ stp_eb <- index_by_area("STP_EB")
 stp_rp <- index_by_area("STP_Reef_Point")
 
 # Alternatively, read in existing index files ---------------------------------
-read_index <- function(reg) {
-  files <- list.files(
-    path = here(results_wd, reg),
-    pattern = "^index_.*\\.csv$", 
-    full.names = TRUE
-  )
+# read_index <- function(reg) {
+#   files <- list.files(
+#     path = here(results_wd, reg),
+#     pattern = "^index_.*\\.csv$", 
+#     full.names = TRUE
+#   )
   
-  # Check if any files were found
-  if (length(files) == 0) {
-    warning("No index CSV files found in: ", here(results_wd, reg))
-    return(NULL)
-  }
+#   # Check if any files were found
+#   if (length(files) == 0) {
+#     warning("No index CSV files found in: ", here(results_wd, reg))
+#     return(NULL)
+#   }
   
-  message("Reading ", length(files), " index CSVs for region: ", here(results_wd, reg))
+#   message("Reading ", length(files), " index CSVs for region: ", here(results_wd, reg))
   
-  # Read and combine all CSVs into a single data frame
-  combined_df <- files %>%
-  lapply(function(file) {
-    df <- read.csv(file)
-    # Force stratum to character type so bind_rows can combine numeric & text labels
-    df$stratum <- as.character(df$stratum)
-    return(df)
-  }) %>%
-  bind_rows()
+#   # Read and combine all CSVs into a single data frame
+#   combined_df <- files %>%
+#   lapply(function(file) {
+#     df <- read.csv(file)
+#     # Force stratum to character type so bind_rows can combine numeric & text labels
+#     df$stratum <- as.character(df$stratum)
+#     return(df)
+#   }) %>%
+#   bind_rows()
   
-  return(combined_df)
-}
+#   return(combined_df)
+# }
 
-stg <- read_index("STG")
-stg_n <- read_index("STG_North")
-stg_s <- read_index("STG_South")
-stp <- read_index("STP")
-stp_e <- read_index("STP_East")
-stp_eb <- read_index("STP_EB")
-stp_rp <- read_index("STP_Reef_Point")
+# stg <- read_index("STG")
+# stg_n <- read_index("STG_North")
+# stg_s <- read_index("STG_South")
+# stp <- read_index("STP")
+# stp_e <- read_index("STP_East")
+# stp_eb <- read_index("STP_EB")
+# stp_rp <- read_index("STP_Reef_Point")
 
 # Combine all indices and plot ------------------------------------------------
 indices <- bind_rows(stg, stg_n, stg_s, stp, stp_e, stp_eb, stp_rp)
