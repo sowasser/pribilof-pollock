@@ -40,7 +40,7 @@ region_grids <- function(polygon, label, save_plot = TRUE) {
       select(LON_UTM, LAT_UTM, AREA) %>%
       mutate(X = LON_UTM / 1000,
              Y = LAT_UTM / 1000,
-             area_km2 = AREA) %>%
+             area_km2 = AREA / 1e6) %>%
       select(X, Y, area_km2)
     grid <- as.data.frame(as.matrix(grid)) # drop attributes
     grid$stratum <- df$associated_circle_radius_meters[area]
@@ -55,7 +55,7 @@ region_grids <- function(polygon, label, save_plot = TRUE) {
                            labels = c("25km", "50km", "75km", "100km", "125km", "150km", "175km", "200km", "225km", "250km", "all")
   )
   grids$region <- label
-  print(summary(as.numeric(grids$area_km2) / 1e6))
+  print(summary(grids$area_km2))
   
   plot <- ggplot(grids, aes(X, Y, colour = area_km2)) +
     geom_tile(width = 2, height = 2, fill = NA) +
