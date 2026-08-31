@@ -43,6 +43,7 @@ biomass_stratum <- gapindex::calc_biomass_stratum(
   gapdata = gapindex_data,
   cpue = cpue) %>%
   select(STRATUM, YEAR, BIOMASS_MT, BIOMASS_VAR, POPULATION_COUNT, POPULATION_VAR)
+write.csv(biomass_stratum, here("biomass_stratum.csv"), row.names = FALSE)
 
 prib_biomass <- biomass_stratum %>%
   filter(STRATUM %in% c(42, 32, 50))
@@ -53,6 +54,7 @@ numbers <- ggplot(prib_biomass, aes(x = YEAR, y = (POPULATION_COUNT / 1e9))) +
   xlab("") + ylab("Population (Billions)") +
   facet_grid(~ STRATUM, scales = "free")
 numbers
+ggsave(numbers, filename = here("design_based_numbers.png"), width = 9, height = 3, units = "in")
 
 biomass <- ggplot(prib_biomass, aes(x = YEAR, y = (BIOMASS_MT / 1e6))) +
   geom_line() +
