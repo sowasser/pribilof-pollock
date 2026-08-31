@@ -102,7 +102,7 @@ dat <- left_join(dat, env, by = "year")
 
 # Final data manipulation steps
 dat$year_f <- as.factor(dat$year)
-dat <- add_utm_columns(dat, ll_names = c("lon", "lat"), utm_crs = 3338, units = "km")
+dat <- add_utm_columns(dat, ll_names = c("lon", "lat"), utm_crs = 32602, units = "km")
 
 # Fit model (if needed) -------------------------------------------------------
 start <- Sys.time()
@@ -154,7 +154,7 @@ if(!exists("fit")) {
 index_by_area <- function(reg) {
   start <- Sys.time()  # start timer
   # Load in prediction grid created in prib_areas.R
-  load(here("shapefiles", "processed", reg, "grid.Rdata"))  # this is grid_list
+  load(here("shapefiles", "processed", reg, "grid_5nm.Rdata"))  # this is grid_list
 
   # Subset grid_list to include the "all" polygon and 50-125km.
   grid_list <- grid_list[c(1:6)]

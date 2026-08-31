@@ -28,11 +28,11 @@ region_grids <- function(polygon, label, save_plot = TRUE) {
   grid_by_area <- function(area) {
     polygon <- df$geometry[area] 
     grid <- make_2d_grid(obj = polygon,
-                         resolution = c(3704, 3704),  # default resolution - 2x2nm
-                        #  resolution = c(9260, 9260),  # 5x5nm
+                        #  resolution = c(3704, 3704),  # default resolution - 2x2nm
+                         resolution = c(9260, 9260),  # 5x5nm
                          output_type = "point",
                          include_tile_center = TRUE) %>%
-      st_transform(crs = "EPSG:3338")
+      st_transform(crs = "EPSG:32602")
     
     grid[, c("LON_UTM", "LAT_UTM")] <- st_coordinates(grid)
     
@@ -105,11 +105,12 @@ sf_use_s2(FALSE)  # turn off spherical geometry
 grids_sf <- all_grids %>%
   filter(stratum == "all") %>%
   mutate(X_m = X * 1000, Y_m = Y * 1000) %>%  # Convert km back to meters
-  st_as_sf(coords = c("X_m", "Y_m"), crs = 3338)
+  st_as_sf(coords = c("X_m", "Y_m"), crs = 32602)
 
 # add survey strata on top
 grid <- get_base_layers(select.region = "bs.all", 
                         design.year = 2022)
+save(grid, file = here("survey_grid.Rdata"))
 
 ggplot() +
   geom_sf(data = world, fill = "grey90", color = "grey60") +
@@ -120,3 +121,4 @@ ggplot() +
   coord_sf(xlim = c(-179, -157), ylim = c(53.8, 63.5), expand = FALSE) +
   labs(x = NULL, y = NULL, color = "Area (km²)") +
   facet_wrap(~region) 
+ggsave(here("strata_polygons.png"), width = 10, height = 8, units = "in")
